@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    
+
+    <data>
+        <record id="inherit_fetchmail_custom" model="ir.ui.view">
+            <field name="name">fetchmail.server.view</field>
+            <field name="model">fetchmail.server</field>
+            <field name="inherit_id" ref="mail.view_email_server_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//form//sheet//notebook//page[@name='server_login_details']//group" position="inside">
+                    <group name="catch_mail" string="string">
+                        <field name="catch_mails_from"/>
+                    </group>
+                </xpath>
+            </field>
+        </record>
+    </data>
+        
+</odoo>

@@ -84,13 +84,13 @@
         <field name="model">crm.lead</field>
         <field name="inherit_id" ref="crm.crm_case_tree_view_oppor"/>
         <field name="arch" type="xml">
-            <xpath expr="//tree//field[@name='name']" position="before">
+            <xpath expr="//list//field[@name='name']" position="before">
                 <field name="logo" widget="image" class="oe_avatar" options="{'preview_image': 'logo'}" string="Logo"/>
             </xpath>
-            <xpath expr="//tree//field[@name='name']" position="attributes">
+            <xpath expr="//list//field[@name='name']" position="attributes">
                 <attribute name="string">Name</attribute>
             </xpath>
-            <xpath expr="//tree//field[@name='name']" position="after">
+            <xpath expr="//list//field[@name='name']" position="after">
                 <!-- <field name="today_start" column_invisible="1" />
                 <field name="today_end" column_invisible="1" /> -->
                 <field name="check_in" string="Check In"/>
@@ -102,13 +102,13 @@
                 <field name="balance" string="Balance" readonly="1"/>
                 <field name="payment_status" string="Payment Status" decoration-success="payment_status == 'paid'" decoration-danger="payment_status == 'unpaid'" decoration-info="payment_status == 'partial'" widget="badge"/>
             </xpath>
-            <xpath expr="//tree//field[@name='expected_revenue']" position="attributes">
+            <xpath expr="//list//field[@name='expected_revenue']" position="attributes">
                 <attribute name="column_invisible">1</attribute>
             </xpath>
-            <xpath expr="//tree//field[@name='user_id']" position="attributes">
+            <xpath expr="//list//field[@name='user_id']" position="attributes">
                 <attribute name="column_invisible">1</attribute>
             </xpath>
-            <xpath expr="//tree//field[@name='stage_id']" position="attributes">
+            <xpath expr="//list//field[@name='stage_id']" position="attributes">
                 <attribute name="column_invisible">1</attribute>
             </xpath>
         </field>
@@ -118,10 +118,10 @@
         <field name="model">crm.lead</field>
         <field name="inherit_id" ref="crm.crm_lead_view_tree_reporting"/>
         <field name="arch" type="xml">
-            <xpath expr="//tree//field[@name='name']" position="attributes">
+            <xpath expr="//list//field[@name='name']" position="attributes">
                 <attribute name="string">Name</attribute>
             </xpath>
-            <xpath expr="//tree//field[@name='name']" position="after">
+            <xpath expr="//list//field[@name='name']" position="after">
                 <field name="check_in" string="Check In"/>
                 <field name="check_out" string="Check Out"/>
                 <field name="property_id" string="Property"/>
@@ -139,7 +139,7 @@
             <xpath expr="//search//filter[@name='saleschannel']" position="after">
                 <filter name="check_in" date="check_in" string="Check-in" context="{'group_by': 'check_in'}" />
                 <filter name="check_out" date="check_out" string="Check-out" context="{'group_by': 'check_out'}" />
-            </xpath> 
+            </xpath>
         </field>
     </record>
     <record id="crm_search_view_custom_opportunity" model="ir.ui.view">
@@ -150,7 +150,7 @@
             <xpath expr="//search//filter[@name='saleschannel']" position="after">
                 <filter name="check_in" date="check_in" string="Check-in" context="{'group_by': 'check_in'}" />
                 <filter name="check_out" date="check_out" string="Check-out" context="{'group_by': 'check_out'}" />
-            </xpath> 
+            </xpath>
         </field>
     </record>
     <record id="product_template_inherit_property" model="ir.ui.view">

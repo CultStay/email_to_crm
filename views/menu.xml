@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_check_in_crm_leads" model="ir.actions.act_window">
+        <field name="name">Today's Check-in</field>
+        <field name="res_model">crm.lead</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">['&amp;',('check_in', '&gt;=', context_today().strftime('%Y-%m-%d')),
+                                 ('check_in', '&lt;=', (context_today() + datetime.timedelta()).strftime('%Y-%m-%d'))]</field>
+        <field name="context">{}</field>
+    </record>
+    <menuitem id="menu_checkin_today"
+        name="Today's Check-in"
+        sequence="10"
+        action="action_check_in_crm_leads"
+        web_icon="email_to_crm_lead,static/description/check_in.png"
+        />
+        <record id="action_check_out_crm_leads" model="ir.actions.act_window">
+        <field name="name">Today's Check-out</field>
+        <field name="res_model">crm.lead</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">['&amp;',('check_out', '&gt;=', context_today().strftime('%Y-%m-%d')),
+                                 ('check_out', '&lt;=', (context_today() + datetime.timedelta()).strftime('%Y-%m-%d'))]</field>
+        <field name="context">{}</field>
+    </record>
+    <menuitem id="menu_check_out_today"
+        name="Today's Check-out"
+        sequence="11"
+        action="action_check_out_crm_leads"
+        web_icon="email_to_crm_lead,static/description/check-out.png"
+        />
+</odoo>

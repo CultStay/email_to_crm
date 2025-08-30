@@ -399,7 +399,7 @@ class MailThread(models.AbstractModel):
             def extract_field(pattern, text, default=None):
                     match = re.search(pattern, text)
                     return match.group(1).strip() if match else default
-            if email_from.endswith('agoda.com'):
+            if email_from.endswith('agoda.com') or email_from == 'd365labs@gmail.com':
 
                 try:
                     idx = lines.index("Room Type")
@@ -463,6 +463,10 @@ class MailThread(models.AbstractModel):
                         'payment_status': 'paid' if data.get('Amount') else 'unpaid',
                         'net_rate': net_rate,
                     })
+                    if data.get('Property ID'):
+                        product = self.env['product.template'].search([('agoda_property_id', '=', data.get('Property ID'))], limit=1)
+                        if product:
+                            lead.property_product_id = product.id
                     _logger.info('Created CRM Lead ID : %s', lead.id)
                     if amount > 0:
                         product = self.env['product.product'].search([('name', 'like', data.get('Property Name', ''))], limit=1)
@@ -490,7 +494,7 @@ class MailThread(models.AbstractModel):
                         lead.invioce_fully_paid = True
                         _logger.info('Created Invoice ID : %s', invoice.id)
                     return
-            if email_from.endswith('airbnb.com'):
+            if email_from.endswith('airbnb.com') or email_from == 'd365labs@gmail.com':
                 if 'payout was sent' in msg_dict.get('subject', '').lower():
                     summary = {
                         "Airbnb Account ID": extract_field(r"Airbnb Account ID\s+(\d+)", cleaned_text),
@@ -553,6 +557,10 @@ class MailThread(models.AbstractModel):
                                     'property_id': transaction.get('property_short', 0),
                                     'listing_id': transaction.get('listing_id', ''),
                                 })
+                                product = self.env['product.template'].search([('name', 'like', transaction.get('property_short'))], limit=1)
+
+                                if product:
+                                    lead.property_product_id = product.id
                                 _logger.info('Created CRM Lead ID : %s', lead.id)
                                 if transaction.get('amount') > 0:
                                     product = self.env['product.product'].search([('name', 'like', transaction.get('property_short', ''))], limit=1)
@@ -581,7 +589,7 @@ class MailThread(models.AbstractModel):
                                     _logger.info('Created Invoice ID : %s', invoice.id)
                         _logger.info('Processed Airbnb booking with Account ID: %s', summary.get('Airbnb Account ID'))
                         return
-            if email_from.endswith('go-mmt.com'):
+            if email_from.endswith('go-mmt.com')  or email_from == 'd365labs@gmail.com':
                 data = {
                     "Booking ID": extract_field(r"Booking ID\s+([A-Z0-9]+)", cleaned_text),
                     "Property Name": extract_field(r"Host Voucher \s+(.+?)", cleaned_text),
@@ -639,6 +647,9 @@ class MailThread(models.AbstractModel):
                         'payment_status': 'paid' if amount else 'unpaid',
                         'property_id': data.get('Room Type', 0),
                     })
+                    product = self.env['product.template'].search([('name', 'like', data.get('Room Type'))], limit=1)
+                    if product:
+                        lead.property_product_id = product.id
                     _logger.info('Created CRM Lead ID : %s', lead.id)
                     if amount > 0:
                         product = self.env['product.product'].search([('name', 'like', data.get('Room Type', ''))], limit=1)
@@ -667,7 +678,7 @@ class MailThread(models.AbstractModel):
                         lead.invioce_fully_paid = True
                         _logger.info('Created Invoice ID : %s', invoice.id)
 
-            if email_from.endswith('booking.com') or email_from == 'sudarsanan1996@gmail.com':
+            if email_from.endswith('booking.com') or email_from == 'd365labs@gmail.com':
 
                 links = soup.find_all("a", href=True)
                 

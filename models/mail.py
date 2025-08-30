@@ -447,6 +447,7 @@ class MailThread(models.AbstractModel):
                     net_rate = float(data.get('Net Rate', 0).replace(",", "").strip()) if data.get('Net Rate') else 0
                     lead = CRMLead.create({
                         'logo_src': logo_src,
+                        'type': 'opportunity',
                         'name': f"Agoda Booking {data.get('Booking ID', 'Unknown')} {data.get('Customer First Name', '')} {data.get('Customer Last Name', '')}",
                         'email_from': data.get('Customer Email', ''),
                         'city': data.get('City', ''),
@@ -543,6 +544,7 @@ class MailThread(models.AbstractModel):
                                 })
                                 lead = CRMLead.create({
                                     'logo_src': logo_src,
+                                    'type': 'opportunity',
                                     'name': f"Airbnb Booking {transaction.get('reservation_code', 'Unknown')} {transaction.get('guest_name', '')}",
                                     'email_from': transaction.get('email', ''),
                                     'check_in': datetime.strptime(transaction.get('check_in', ''), "%m/%d/%Y").date(),
@@ -634,6 +636,7 @@ class MailThread(models.AbstractModel):
                     net_rate = float(data.get('Net Rate', 0).replace(",", "").strip())
                     lead = CRMLead.create({
                         'logo_src': logo_src,
+                        'type': 'opportunity',
                         'name': f"MakeMyTrip Booking {data.get('Booking ID', '')} {data.get('Customer First Name', '')}",
                         'check_in': checkin,
                         'check_out': checkout,
@@ -710,6 +713,7 @@ class MailThread(models.AbstractModel):
                 booking_id = booking_data['booking_id']
                 lead = CRMLead.create({
                         'logo_src': logo_src,
+                        'type': 'opportunity',
                         'name': f"Booking.com Booking {booking_id}",
                         'booking_url' : booking_url,
                         'partner_name': 'Booking.com',

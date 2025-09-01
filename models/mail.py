@@ -446,7 +446,7 @@ class MailThread(models.AbstractModel):
                     amount = float(data.get('Amount', '').replace(",", "").strip()) if data.get('Amount') else 0
                     net_rate = float(data.get('Net Rate', 0).replace(",", "").strip()) if data.get('Net Rate') else 0
                     lead = CRMLead.create({
-                        'logo_src': logo_src,
+                        'logo_src': 'email_to_crm/static/src/img/agoda.png' if not logo_src else logo_src,
                         'type': 'opportunity',
                         'name': f"Agoda Booking {data.get('Booking ID', 'Unknown')} {data.get('Customer First Name', '')} {data.get('Customer Last Name', '')}",
                         'email_from': data.get('Customer Email', ''),
@@ -543,7 +543,7 @@ class MailThread(models.AbstractModel):
                                     'email': transaction.get('email', ''),
                                 })
                                 lead = CRMLead.create({
-                                    'logo_src': logo_src,
+                                    'logo_src': 'email_to_crm/static/src/img/Airbnb_Logo.png' if not logo_src else logo_src,
                                     'type': 'opportunity',
                                     'name': f"Airbnb Booking {transaction.get('reservation_code', 'Unknown')} {transaction.get('guest_name', '')}",
                                     'email_from': transaction.get('email', ''),
@@ -635,7 +635,7 @@ class MailThread(models.AbstractModel):
                     amount = float(data.get('Amount', '').replace(",", "").strip()) if data.get('Amount') else 0
                     net_rate = float(data.get('Net Rate', 0).replace(",", "").strip())
                     lead = CRMLead.create({
-                        'logo_src': logo_src,
+                        'logo_src': 'email_to_crm/static/src/img/mmt.png' if not logo_src else logo_src,
                         'type': 'opportunity',
                         'name': f"MakeMyTrip Booking {data.get('Booking ID', '')} {data.get('Customer First Name', '')}",
                         'check_in': checkin,
@@ -712,7 +712,7 @@ class MailThread(models.AbstractModel):
                 booking_url = booking_data['url']
                 booking_id = booking_data['booking_id']
                 lead = CRMLead.create({
-                        'logo_src': logo_src,
+                        'logo_src': 'email_to_crm/static/src/img/Booking.png' if not logo_src else logo_src,
                         'type': 'opportunity',
                         'name': f"Booking.com Booking {booking_id}",
                         'booking_url' : booking_url,

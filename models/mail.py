@@ -619,8 +619,22 @@ class MailThread(models.AbstractModel):
                     })
                     def parse_checkin_checkout(date_str):
                         try:
-                            dt = datetime.strptime(date_str, "%d %b '%y %I:%M %p")
-                            return dt  # return as naive datetime; Odoo handles server timezone conversion
+                            # Extract only the part that looks like "02 Oct '25" or "30 Sep '25 12:00 PM"
+                            match = re.search(r"\d{2} \w{3} '\d{2}(?: \d{1,2}:\d{2} (AM|PM))?", date_str)
+                            if not match:
+                                raise ValueError("No valid date pattern found")
+                            
+                            clean_date = match.group(0)
+
+                            # Try parsing with datetime+time
+                            try:
+                                dt = datetime.strptime(clean_date, "%d %b '%y %I:%M %p")
+                            except ValueError:
+                                # Fall back to date only
+                                dt = datetime.strptime(clean_date, "%d %b '%y")
+
+                            return dt  # naive datetime (Odoo handles TZ)
+                        
                         except Exception as e:
                             _logger.error(f"Failed to parse date string: {date_str} — {e}")
                             return None

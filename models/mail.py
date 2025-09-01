@@ -468,6 +468,7 @@ class MailThread(models.AbstractModel):
                         product = self.env['product.template'].search([('agoda_property_id', '=', data.get('Property ID'))], limit=1)
                         if product:
                             lead.property_product_id = product.id
+                            lead.city = product.city
                     _logger.info('Created CRM Lead ID : %s', lead.id)
                     if amount > 0:
                         product = self.env['product.product'].search([('name', 'like', data.get('Property Name', ''))], limit=1)
@@ -563,6 +564,7 @@ class MailThread(models.AbstractModel):
 
                                 if product:
                                     lead.property_product_id = product.id
+                                    lead.city = product.city
                                 _logger.info('Created CRM Lead ID : %s', lead.id)
                                 if transaction.get('amount') > 0:
                                     product = self.env['product.product'].search([('name', 'like', transaction.get('property_short', ''))], limit=1)
@@ -667,6 +669,7 @@ class MailThread(models.AbstractModel):
                     product = self.env['product.template'].search([('name', 'like', data.get('Room Type'))], limit=1)
                     if product:
                         lead.property_product_id = product.id
+                        lead.city = product.city
                     _logger.info('Created CRM Lead ID : %s', lead.id)
                     if amount > 0:
                         product = self.env['product.product'].search([('name', 'like', data.get('Room Type', ''))], limit=1)

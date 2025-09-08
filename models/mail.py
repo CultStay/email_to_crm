@@ -51,6 +51,13 @@ class ProductTemplate(models.Model):
         help="The MakeMyTrip Property ID of this product.",
     )
 
+    @api.model
+    def create(self, vals):
+        res = super(ProductTemplate, self).create(vals)
+        if not res.company_id and self.env.user.company_id:
+            res.company_id = self.env.user.company_id.id
+        return res
+
 class AccountMove(models.Model):
     _inherit = 'account.move'
 
@@ -202,6 +209,13 @@ class CrmLead(models.Model):
         string='Other Guests',
         help="Information about other guests associated with this lead.",
     )
+
+    @api.model
+    def create(self, vals):
+        res = super(CrmLead, self).create(vals)
+        if not res.company_id and self.env.user.company_id:
+            res.company_id = self.env.user.company_id.id
+        return res
 
     @api.depends('rate', 'customer_paid')
     def _compute_balance(self):
@@ -435,67 +449,69 @@ class MailThread(models.AbstractModel):
                     'payment_by': extract_field(r'Booked and Payable by\s*(.*?)\n', cleaned_text),
                 }
                 if data.get('Booking ID'):
-                    partner = self.env['res.partner'].create({
-                        'name': f"{data.get('Customer First Name', '')} {data.get('Customer Last Name', '')}",
-                        'email': data.get('Customer Email', ''),
-                    })
-                    in_date_obj = datetime.strptime(data.get('Check-in', ''), "%B %d, %Y").date()  # datetime.date(2025, 7, 9)
-                    checkin = in_date_obj.strftime("%Y-%m-%d") 
-                    out_date_obj = datetime.strptime(data.get('Check-out', ''), "%B %d, %Y").date()  # datetime.date(2025, 7, 9)
-                    checkout = out_date_obj.strftime("%Y-%m-%d")
-                    amount = float(data.get('Amount', '').replace(",", "").strip()) if data.get('Amount') else 0
-                    net_rate = float(data.get('Net Rate', 0).replace(",", "").strip()) if data.get('Net Rate') else 0
-                    lead = CRMLead.create({
-                        'logo_src': 'email_to_crm/static/src/img/agoda.png' if not logo_src else logo_src,
-                        'type': 'opportunity',
-                        'name': f"Agoda Booking {data.get('Booking ID', 'Unknown')} {data.get('Customer First Name', '')} {data.get('Customer Last Name', '')}",
-                        'email_from': data.get('Customer Email', ''),
-                        'city': data.get('City', ''),
-                        'country_id': self.env['res.country'].search([('name', '=', data.get('Country of Residence', ''))], limit=1).id,
-                        'check_in': checkin,
-                        'check_out': checkout,
-                        'other_guests': data.get('Other Guests', ''),
-                        'rate': amount,
-                        'customer_paid': amount,
-                        'partner_name': data.get('payment_by'),
-                        'partner_id': partner.id,
-                        'property_id': f"{data.get('Property Name', '')} ID: {data.get('Property ID', '')}",
-                        'booking_id': data.get('Booking ID', ''),
-                        'payment_status': 'paid' if data.get('Amount') else 'unpaid',
-                        'net_rate': net_rate,
-                    })
-                    if data.get('Property ID'):
-                        product = self.env['product.template'].search([('agoda_property_id', '=', data.get('Property ID'))], limit=1)
-                        if product:
-                            lead.property_product_id = product.id
-                            lead.city = product.city
-                    _logger.info('Created CRM Lead ID : %s', lead.id)
-                    if amount > 0:
-                        product = self.env['product.product'].search([('name', 'like', data.get('Property Name', ''))], limit=1)
-                        invoice = self.env['account.move'].create({
-                            'partner_id': partner.id,
-                            'move_type': 'out_invoice',
-                            'invoice_date': datetime.now().date(),
-                            'lead_id': lead.id,
-                            'invoice_line_ids': [(0, 0, {
-                                'product_id': product.id if product else False,
-                                'quantity': 1,
-                                'price_unit': amount,})],
+                    if len(self.env['crm.lead'].search([('booking_id', '=', data.get('Booking ID'))])) == 0:
+
+                        partner = self.env['res.partner'].create({
+                            'name': f"{data.get('Customer First Name', '')} {data.get('Customer Last Name', '')}",
+                            'email': data.get('Customer Email', ''),
                         })
-                        invoice.action_post()
-                        payment = self.env['account.payment'].create({
-                            'payment_type': 'inbound',
-                            'partner_type': 'customer',
+                        in_date_obj = datetime.strptime(data.get('Check-in', ''), "%B %d, %Y").date()  # datetime.date(2025, 7, 9)
+                        checkin = in_date_obj.strftime("%Y-%m-%d") 
+                        out_date_obj = datetime.strptime(data.get('Check-out', ''), "%B %d, %Y").date()  # datetime.date(2025, 7, 9)
+                        checkout = out_date_obj.strftime("%Y-%m-%d")
+                        amount = float(data.get('Amount', '').replace(",", "").strip()) if data.get('Amount') else 0
+                        net_rate = float(data.get('Net Rate', 0).replace(",", "").strip()) if data.get('Net Rate') else 0
+                        lead = CRMLead.create({
+                            'logo_src': 'email_to_crm/static/src/img/agoda.png' if not logo_src else logo_src,
+                            'type': 'opportunity',
+                            'name': f"Agoda Booking {data.get('Booking ID', 'Unknown')} {data.get('Customer First Name', '')} {data.get('Customer Last Name', '')}",
+                            'email_from': data.get('Customer Email', ''),
+                            'city': data.get('City', ''),
+                            'country_id': self.env['res.country'].search([('name', '=', data.get('Country of Residence', ''))], limit=1).id,
+                            'check_in': checkin,
+                            'check_out': checkout,
+                            'other_guests': data.get('Other Guests', ''),
+                            'rate': amount,
+                            'customer_paid': amount,
+                            'partner_name': data.get('payment_by'),
                             'partner_id': partner.id,
-                            'amount': amount,
-                            'journal_id': self.env['account.journal'].search([('type', '=', 'bank')], limit=1).id,
-                            'payment_method_id': self.env.ref('account.account_payment_method_manual_in').id,
+                            'property_id': f"{data.get('Property Name', '')} ID: {data.get('Property ID', '')}",
+                            'booking_id': data.get('Booking ID', ''),
+                            'payment_status': 'paid' if data.get('Amount') else 'unpaid',
+                            'net_rate': net_rate,
                         })
-                        payment.action_post()
-                        invoice.payment_state = 'paid'
-                        lead.invioce_fully_paid = True
-                        _logger.info('Created Invoice ID : %s', invoice.id)
-                    return
+                        if data.get('Property ID'):
+                            product = self.env['product.template'].search([('agoda_property_id', '=', data.get('Property ID'))], limit=1)
+                            if product:
+                                lead.property_product_id = product.id
+                                lead.city = product.city
+                        _logger.info('Created CRM Lead ID : %s', lead.id)
+                        if amount > 0:
+                            product = self.env['product.product'].search([('name', 'like', data.get('Property Name', ''))], limit=1)
+                            invoice = self.env['account.move'].create({
+                                'partner_id': partner.id,
+                                'move_type': 'out_invoice',
+                                'invoice_date': datetime.now().date(),
+                                'lead_id': lead.id,
+                                'invoice_line_ids': [(0, 0, {
+                                    'product_id': product.id if product else False,
+                                    'quantity': 1,
+                                    'price_unit': amount,})],
+                            })
+                            invoice.action_post()
+                            payment = self.env['account.payment'].create({
+                                'payment_type': 'inbound',
+                                'partner_type': 'customer',
+                                'partner_id': partner.id,
+                                'amount': amount,
+                                'journal_id': self.env['account.journal'].search([('type', '=', 'bank')], limit=1).id,
+                                'payment_method_id': self.env.ref('account.account_payment_method_manual_in').id,
+                            })
+                            payment.action_post()
+                            invoice.payment_state = 'paid'
+                            lead.invioce_fully_paid = True
+                            _logger.info('Created Invoice ID : %s', invoice.id)
+                        return
             if email_from.endswith('airbnb.com') or email_from == 'd365labs@gmail.com' or email_from == 'sudarsanan1996@gmail.com':
                 if 'payout was sent' in msg_dict.get('subject', '').lower():
                     summary = {
@@ -539,58 +555,59 @@ class MailThread(models.AbstractModel):
                     if summary.get('Airbnb Account ID'):
                         for transaction in transactions:
                             if transaction.get('type') in ['Reservation', 'Home']:
-                                partner = self.env['res.partner'].create({
-                                    'name': f"{transaction.get('guest_name', '')}",
-                                    'email': transaction.get('email', ''),
-                                })
-                                lead = CRMLead.create({
-                                    'logo_src': 'email_to_crm/static/src/img/Airbnb_Logo.png' if not logo_src else logo_src,
-                                    'type': 'opportunity',
-                                    'name': f"Airbnb Booking {transaction.get('reservation_code', 'Unknown')} {transaction.get('guest_name', '')}",
-                                    'email_from': transaction.get('email', ''),
-                                    'check_in': datetime.strptime(transaction.get('check_in', ''), "%m/%d/%Y").date(),
-                                    'check_out': datetime.strptime(transaction.get('check_out', ''), "%m/%d/%Y").date(),
-                                    'rate': transaction.get('amount', 0),
-                                    'customer_paid': transaction.get('amount', 0),
-                                    'partner_name': 'Airbnb',
-                                    'partner_id': partner.id,
-                                    'booking_id': transaction.get('reservation_code', ''),
-                                    'net_rate': transaction.get('amount', 0),
-                                    'payment_status': 'paid' if transaction.get('amount') else 'unpaid',
-                                    'property_id': transaction.get('property_short', 0),
-                                    'listing_id': transaction.get('listing_id', ''),
-                                })
-                                product = self.env['product.template'].search([('name', 'like', transaction.get('property_short'))], limit=1)
+                                if len(self.env['crm.lead'].search([('booking_id', '=', transaction.get('reservation_code'))])) == 0:
+                                    partner = self.env['res.partner'].create({
+                                        'name': f"{transaction.get('guest_name', '')}",
+                                        'email': transaction.get('email', ''),
+                                    })
+                                    lead = CRMLead.create({
+                                        'logo_src': 'email_to_crm/static/src/img/Airbnb_Logo.png' if not logo_src else logo_src,
+                                        'type': 'opportunity',
+                                        'name': f"Airbnb Booking {transaction.get('reservation_code', 'Unknown')} {transaction.get('guest_name', '')}",
+                                        'email_from': transaction.get('email', ''),
+                                        'check_in': datetime.strptime(transaction.get('check_in', ''), "%m/%d/%Y").date(),
+                                        'check_out': datetime.strptime(transaction.get('check_out', ''), "%m/%d/%Y").date(),
+                                        'rate': transaction.get('amount', 0),
+                                        'customer_paid': transaction.get('amount', 0),
+                                        'partner_name': 'Airbnb',
+                                        'partner_id': partner.id,
+                                        'booking_id': transaction.get('reservation_code', ''),
+                                        'net_rate': transaction.get('amount', 0),
+                                        'payment_status': 'paid' if transaction.get('amount') else 'unpaid',
+                                        'property_id': transaction.get('property_short', 0),
+                                        'listing_id': transaction.get('listing_id', ''),
+                                    })
+                                    product = self.env['product.template'].search([('name', 'like', transaction.get('property_short'))], limit=1)
 
-                                if product:
-                                    lead.property_product_id = product.id
-                                    lead.city = product.city
-                                _logger.info('Created CRM Lead ID : %s', lead.id)
-                                if transaction.get('amount') > 0:
-                                    product = self.env['product.product'].search([('name', 'like', transaction.get('property_short', ''))], limit=1)
-                                    invoice = self.env['account.move'].create({
-                                        'partner_id': partner.id,
-                                        'move_type': 'out_invoice',
-                                        'invoice_date': datetime.now().date(),
-                                        'lead_id': lead.id,
-                                        'invoice_line_ids': [(0, 0, {
-                                            'product_id': product.id if product else False,
-                                            'quantity': 1,
-                                            'price_unit': transaction.get('amount'),})],
-                                    })
-                                    invoice.action_post()
-                                    payment = self.env['account.payment'].create({
-                                        'payment_type': 'inbound',
-                                        'partner_type': 'customer',
-                                        'partner_id': partner.id,
-                                        'amount': transaction.get('amount'),
-                                        'journal_id': self.env['account.journal'].search([('type', '=', 'bank')], limit=1).id,
-                                        'payment_method_id': self.env.ref('account.account_payment_method_manual_in').id,
-                                    })
-                                    payment.action_post()
-                                    invoice.payment_state = 'paid'
-                                    lead.invioce_fully_paid = True
-                                    _logger.info('Created Invoice ID : %s', invoice.id)
+                                    if product:
+                                        lead.property_product_id = product.id
+                                        lead.city = product.city
+                                    _logger.info('Created CRM Lead ID : %s', lead.id)
+                                    if transaction.get('amount') > 0:
+                                        product = self.env['product.product'].search([('name', 'like', transaction.get('property_short', ''))], limit=1)
+                                        invoice = self.env['account.move'].create({
+                                            'partner_id': partner.id,
+                                            'move_type': 'out_invoice',
+                                            'invoice_date': datetime.now().date(),
+                                            'lead_id': lead.id,
+                                            'invoice_line_ids': [(0, 0, {
+                                                'product_id': product.id if product else False,
+                                                'quantity': 1,
+                                                'price_unit': transaction.get('amount'),})],
+                                        })
+                                        invoice.action_post()
+                                        payment = self.env['account.payment'].create({
+                                            'payment_type': 'inbound',
+                                            'partner_type': 'customer',
+                                            'partner_id': partner.id,
+                                            'amount': transaction.get('amount'),
+                                            'journal_id': self.env['account.journal'].search([('type', '=', 'bank')], limit=1).id,
+                                            'payment_method_id': self.env.ref('account.account_payment_method_manual_in').id,
+                                        })
+                                        payment.action_post()
+                                        invoice.payment_state = 'paid'
+                                        lead.invioce_fully_paid = True
+                                        _logger.info('Created Invoice ID : %s', invoice.id)
                         _logger.info('Processed Airbnb booking with Account ID: %s', summary.get('Airbnb Account ID'))
                         return
             if email_from.endswith('go-mmt.com')  or email_from == 'd365labs@gmail.com' or email_from == 'sudarsanan1996@gmail.com':
@@ -615,92 +632,100 @@ class MailThread(models.AbstractModel):
                     "payment_by": extract_field(r"Payment Status\s+(.+)", cleaned_text),
                 }
                 if data.get('Booking ID'):
-                    partner = self.env['res.partner'].create({
-                        'name': f"{data.get('Customer First Name', '')} {data.get('Customer Last Name', '')}",
-                        'email': data.get('Customer Email', ''),
-                    })
-                    def parse_checkin_checkout(date_str):
-                        try:
-                            # Extract only the part that looks like "02 Oct '25" or "30 Sep '25 12:00 PM"
-                            match = re.search(r"\d{2} \w{3} '\d{2}(?: \d{1,2}:\d{2} (AM|PM))?", date_str)
-                            if not match:
-                                raise ValueError("No valid date pattern found")
-                            
-                            clean_date = match.group(0)
-
-                            # Try parsing with datetime+time
+                    if len(self.env['crm.lead'].search([('booking_id', '=', data.get('Booking ID'))])) == 0:
+                        partner = self.env['res.partner'].create({
+                            'name': f"{data.get('Customer First Name', '')} {data.get('Customer Last Name', '')}",
+                            'email': data.get('Customer Email', ''),
+                        })
+                        def parse_checkin_checkout(date_str):
                             try:
-                                dt = datetime.strptime(clean_date, "%d %b '%y %I:%M %p")
-                            except ValueError:
-                                # Fall back to date only
-                                dt = datetime.strptime(clean_date, "%d %b '%y")
+                                # Extract only the part that looks like "02 Oct '25" or "30 Sep '25 12:00 PM"
+                                match = re.search(r"\d{2} \w{3} '\d{2}(?: \d{1,2}:\d{2} (AM|PM))?", date_str)
+                                if not match:
+                                    raise ValueError("No valid date pattern found")
+                                
+                                clean_date = match.group(0)
 
-                            return dt  # naive datetime (Odoo handles TZ)
+                                # Try parsing with datetime+time
+                                try:
+                                    dt = datetime.strptime(clean_date, "%d %b '%y %I:%M %p")
+                                except ValueError:
+                                    # Fall back to date only
+                                    dt = datetime.strptime(clean_date, "%d %b '%y")
+
+                                return dt  # naive datetime (Odoo handles TZ)
+                            
+                            except Exception as e:
+                                _logger.error(f"Failed to parse date string: {date_str} — {e}")
+                                return None
+                        checkin = parse_checkin_checkout(data.get('Check-in', ''))
+                        checkout = parse_checkin_checkout(data.get('Check-out', ''))
+                        if checkin and checkout:
+                            checkin = checkin.strftime("%Y-%m-%d %H:%M:%S")
+                            checkout = checkout.strftime("%Y-%m-%d %H:%M:%S")
+                        else:
+                            checkin = checkout = None
                         
-                        except Exception as e:
-                            _logger.error(f"Failed to parse date string: {date_str} — {e}")
-                            return None
-                    checkin = parse_checkin_checkout(data.get('Check-in', ''))
-                    checkout = parse_checkin_checkout(data.get('Check-out', ''))
-                    if checkin and checkout:
-                        checkin = checkin.strftime("%Y-%m-%d %H:%M:%S")
-                        checkout = checkout.strftime("%Y-%m-%d %H:%M:%S")
-                    else:
-                        checkin = checkout = None
-                    
-                    amount = float(data.get('Amount', '').replace(",", "").strip()) if data.get('Amount') else 0
-                    net_rate = float(data.get('Net Rate', 0).replace(",", "").strip())
-                    lead = CRMLead.create({
-                        'logo_src': 'email_to_crm/static/src/img/mmt.png' if not logo_src else logo_src,
-                        'type': 'opportunity',
-                        'name': f"MakeMyTrip Booking {data.get('Booking ID', '')} {data.get('Customer First Name', '')}",
-                        'check_in': checkin,
-                        'check_out': checkout,
-                        'rate': amount,
-                        'customer_paid': amount,
-                        'number_of_rooms' : int(data.get('No. of Rooms', 0)) if data.get('No. of Rooms') else 0,
-                        'partner_name': 'MakeMyTrip',
-                        'partner_id': partner.id,
-                        'booking_id': data.get('Booking ID', ''),
-                        'net_rate': net_rate,
-                        'payment_status': 'paid' if amount else 'unpaid',
-                        'property_id': data.get('Room Type', 0),
-                    })
-                    product = self.env['product.template'].search([('name', 'like', data.get('Room Type'))], limit=1)
-                    if product:
-                        lead.property_product_id = product.id
-                        lead.city = product.city
-                    _logger.info('Created CRM Lead ID : %s', lead.id)
-                    if amount > 0:
-                        product = self.env['product.product'].search([('name', 'like', data.get('Room Type', ''))], limit=1)
-                        invoice = self.env['account.move'].create({
+                        amount = float(data.get('Amount', '').replace(",", "").strip()) if data.get('Amount') else 0
+                        net_rate = float(data.get('Net Rate', 0).replace(",", "").strip())
+                        lead = CRMLead.create({
+                            'logo_src': 'email_to_crm/static/src/img/mmt.png' if not logo_src else logo_src,
+                            'type': 'opportunity',
+                            'name': f"MakeMyTrip Booking {data.get('Booking ID', '')} {data.get('Customer First Name', '')}",
+                            'check_in': checkin,
+                            'check_out': checkout,
+                            'rate': amount,
+                            'customer_paid': amount,
+                            'number_of_rooms' : int(data.get('No. of Rooms', 0)) if data.get('No. of Rooms') else 0,
+                            'partner_name': 'MakeMyTrip',
                             'partner_id': partner.id,
-                            'move_type': 'out_invoice',
-                            'invoice_date': datetime.now().date(),
-                            'lead_id': lead.id,
-                            'invoice_line_ids': [(0, 0, {
-                                'product_id': product.id if product else False,
-                                'quantity': 1,
-                                'price_unit': amount,})],
+                            'booking_id': data.get('Booking ID', ''),
+                            'net_rate': net_rate,
+                            'payment_status': 'paid' if amount else 'unpaid',
+                            'property_id': data.get('Room Type', 0),
                         })
-                        invoice.action_post()
-                        payment = self.env['account.payment'].create({
-                            'payment_type': 'inbound',
-                            'partner_type': 'customer',
-                            'partner_id': partner.id,
-                            'amount': amount,
-                            'journal_id': self.env['account.journal'].search([('type', '=', 'bank')], limit=1).id,
-                            'payment_method_id': self.env.ref('account.account_payment_method_manual_in').id,
-                        })
-                        payment.action_post()
-                        # Link the payment with the invoice
-                        invoice.payment_state = 'paid'
-                        lead.invioce_fully_paid = True
-                        _logger.info('Created Invoice ID : %s', invoice.id)
-
+                        product = self.env['product.template'].search([('name', 'like', data.get('Room Type'))], limit=1)
+                        if product:
+                            lead.property_product_id = product.id
+                            lead.city = product.city
+                        _logger.info('Created CRM Lead ID : %s', lead.id)
+                        if amount > 0:
+                            product = self.env['product.product'].search([('name', 'like', data.get('Room Type', ''))], limit=1)
+                            invoice = self.env['account.move'].create({
+                                'partner_id': partner.id,
+                                'move_type': 'out_invoice',
+                                'invoice_date': datetime.now().date(),
+                                'lead_id': lead.id,
+                                'invoice_line_ids': [(0, 0, {
+                                    'product_id': product.id if product else False,
+                                    'quantity': 1,
+                                    'price_unit': amount,})],
+                            })
+                            invoice.action_post()
+                            payment = self.env['account.payment'].create({
+                                'payment_type': 'inbound',
+                                'partner_type': 'customer',
+                                'partner_id': partner.id,
+                                'amount': amount,
+                                'journal_id': self.env['account.journal'].search([('type', '=', 'bank')], limit=1).id,
+                                'payment_method_id': self.env.ref('account.account_payment_method_manual_in').id,
+                            })
+                            payment.action_post()
+                            # Link the payment with the invoice
+                            invoice.payment_state = 'paid'
+                            lead.invioce_fully_paid = True
+                            _logger.info('Created Invoice ID : %s', invoice.id)
+                        return
             if email_from.endswith('booking.com') or email_from == 'd365labs@gmail.com' or email_from == 'sudarsanan1996@gmail.com':
 
                 links = soup.find_all("a", href=True)
+                booking_node = soup.find(text=re.compile("Booking.com"))
+                property_name = None
+                if booking_node:
+                    # Get the next text after Booking.com
+                    next_text = booking_node.find_next(string=True)
+                    if next_text:
+                        property_name = next_text.strip()
                 
                 booking_data = None
                 # 2. Filter for booking.com URLs containing res_id
@@ -728,13 +753,20 @@ class MailThread(models.AbstractModel):
                     return
                 booking_url = booking_data['url']
                 booking_id = booking_data['booking_id']
-                lead = CRMLead.create({
-                        'logo_src': 'email_to_crm/static/src/img/Booking.png' if not logo_src else logo_src,
+                if property_name:
+                    property_search = self.env['product.product'].search([('name', 'ilike', property_name)], limit=1)
+                    property_id = property_search.id if property_search else None
+                else:
+                    property_id = None
+                if len(self.env['crm.lead'].search([('booking_id', '=', booking_id)])) == 0:
+                    lead = CRMLead.create({
+                        'logo_src': logo_src,
                         'type': 'opportunity',
                         'name': f"Booking.com Booking {booking_id}",
                         'booking_url' : booking_url,
                         'partner_name': 'Booking.com',
                         'booking_id': booking_id,
+                        'property_product_id': property_id,
                         'payment_status': 'unpaid',
                     })
                       

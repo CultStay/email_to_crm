@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record model="ir.module.category" id="email_to_crm.module_category_cult_stay">
+            <field name="name">Company User Management</field>
+            <field name="sequence">3</field>
+        </record>
+
+        <record id="group_cult_stay_user" model="res.groups">
+            <field name="name">CultStay User</field>
+            <field name="category_id" ref="email_to_crm.module_category_cult_stay"/>
+        </record>
+        <record id="group_jb_sweet_user" model="res.groups">
+            <field name="name">JandBventures User</field>
+            <field name="category_id" ref="email_to_crm.module_category_cult_stay"/>
+        </record>
+    </data>
+</odoo>

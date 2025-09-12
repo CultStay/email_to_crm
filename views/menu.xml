@@ -11,6 +11,7 @@
     <menuitem id="menu_checkin_today"
         name="Today's Check-in"
         sequence="10"
+        groups="email_to_crm.group_cult_stay_user"
         action="action_check_in_crm_leads"
         web_icon="email_to_crm,static/description/check_in.png"
         />
@@ -25,7 +26,29 @@
     <menuitem id="menu_check_out_today"
         name="Today's Check-out"
         sequence="11"
+        groups="email_to_crm.group_cult_stay_user"
         action="action_check_out_crm_leads"
         web_icon="email_to_crm,static/description/check-out.png"
         />
+    <odoo>
+
+    <!-- Inherit the Sales Root Menu -->
+    <record id="sale.sale_menu_root" model="ir.ui.menu">
+        <field name="groups_id" eval="[(6, 0, [ref('email_to_crm.group_jb_sweet_user')])]"/>
+    </record>
+
+    <!-- Inherit the Purchase Root Menu -->
+    <record id="purchase.menu_purchase_root" model="ir.ui.menu">
+        <field name="groups_id" eval="[(6, 0, [ref('email_to_crm.group_jb_sweet_user')])]"/>
+    </record>
+
+    <!-- Inherit the Inventory Root Menu -->
+    <record id="stock.menu_stock_root" model="ir.ui.menu">
+        <field name="groups_id" eval="[(6, 0, [ref('email_to_crm.group_jb_sweet_user')])]"/>
+    </record>
+
+    <!-- Inherit the Stock Barcode Root Menu -->
+    <record id="stock_barcode.stock_barcode_menu" model="ir.ui.menu">
+        <field name="groups_id" eval="[(6, 0, [ref('email_to_crm.group_jb_sweet_user')])]"/>
+    </record>
 </odoo>

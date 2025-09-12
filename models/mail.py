@@ -455,10 +455,11 @@ class MailThread(models.AbstractModel):
                             'name': f"{data.get('Customer First Name', '')} {data.get('Customer Last Name', '')}",
                             'email': data.get('Customer Email', ''),
                         })
-                        in_date_obj = datetime.strptime(data.get('Check-in', ''), "%B %d, %Y").date()  # datetime.date(2025, 7, 9)
-                        checkin = in_date_obj.strftime("%Y-%m-%d") 
-                        out_date_obj = datetime.strptime(data.get('Check-out', ''), "%B %d, %Y").date()  # datetime.date(2025, 7, 9)
-                        checkout = out_date_obj.strftime("%Y-%m-%d")
+                        user_tz = pytz.timezone(self.env.user.tz or 'Asia/Kolkata')
+                        in_date_obj = datetime.strptime(data.get('Check-in', ''), "%B %d, %Y")
+                        in_date_obj = user_tz.localize(in_date_obj.replace(hour=12, minute=0, second=0, microsecond=0)).astimezone(pytz.UTC).replace(tzinfo=None)
+                        out_date_obj = datetime.strptime(data.get('Check-out', ''), "%B %d, %Y")
+                        out_date_obj = user_tz.localize(out_date_obj.replace(hour=10, minute=0, second=0, microsecond=0)).astimezone(pytz.UTC).replace(tzinfo=None)
                         amount = float(data.get('Amount', '').replace(",", "").strip()) if data.get('Amount') else 0
                         net_rate = float(data.get('Net Rate', 0).replace(",", "").strip()) if data.get('Net Rate') else 0
                         lead = CRMLead.create({
@@ -468,8 +469,8 @@ class MailThread(models.AbstractModel):
                             'email_from': data.get('Customer Email', ''),
                             'city': data.get('City', ''),
                             'country_id': self.env['res.country'].search([('name', '=', data.get('Country of Residence', ''))], limit=1).id,
-                            'check_in': checkin,
-                            'check_out': checkout,
+                            'check_in': in_date_obj,
+                            'check_out': out_date_obj,
                             'other_guests': data.get('Other Guests', ''),
                             'rate': amount,
                             'customer_paid': amount,
@@ -565,8 +566,12 @@ class MailThread(models.AbstractModel):
                                         'type': 'opportunity',
                                         'name': f"Airbnb Booking {transaction.get('reservation_code', 'Unknown')} {transaction.get('guest_name', '')}",
                                         'email_from': transaction.get('email', ''),
-                                        'check_in': datetime.strptime(transaction.get('check_in', ''), "%m/%d/%Y").date(),
-                                        'check_out': datetime.strptime(transaction.get('check_out', ''), "%m/%d/%Y").date(),
+                                        'check_in': pytz.timezone(self.env.user.tz or 'Asia/Kolkata').localize(
+                                            datetime.strptime(transaction.get('check_in', ''), "%m/%d/%Y").replace(hour=12, minute=0, second=0, microsecond=0)
+                                        ).astimezone(pytz.UTC).replace(tzinfo=None),
+                                        'check_out': pytz.timezone(self.env.user.tz or 'Asia/Kolkata').localize(
+                                            datetime.strptime(transaction.get('check_out', ''), "%m/%d/%Y").replace(hour=10, minute=0, second=0, microsecond=0)
+                                        ).astimezone(pytz.UTC).replace(tzinfo=None),
                                         'rate': transaction.get('amount', 0),
                                         'customer_paid': transaction.get('amount', 0),
                                         'partner_name': 'Airbnb',
@@ -661,8 +666,9 @@ class MailThread(models.AbstractModel):
                         checkin = parse_checkin_checkout(data.get('Check-in', ''))
                         checkout = parse_checkin_checkout(data.get('Check-out', ''))
                         if checkin and checkout:
-                            checkin = checkin.strftime("%Y-%m-%d %H:%M:%S")
-                            checkout = checkout.strftime("%Y-%m-%d %H:%M:%S")
+                            user_tz = pytz.timezone(self.env.user.tz or 'Asia/Kolkata')
+                            checkin = user_tz.localize(checkin.replace(hour=12, minute=0, second=0, microsecond=0)).astimezone(pytz.UTC).replace(tzinfo=None)
+                            checkout = user_tz.localize(checkout.replace(hour=10, minute=0, second=0, microsecond=0)).astimezone(pytz.UTC).replace(tzinfo=None)
                         else:
                             checkin = checkout = None
                         

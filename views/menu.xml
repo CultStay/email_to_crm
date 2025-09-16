@@ -30,7 +30,6 @@
         action="action_check_out_crm_leads"
         web_icon="email_to_crm,static/description/check-out.png"
         />
-    <odoo>
 
     <!-- Inherit the Sales Root Menu -->
     <record id="sale.sale_menu_root" model="ir.ui.menu">

@@ -226,12 +226,19 @@ class CrmLead(models.Model):
             else:
                 lead.balance = 0.0
 
-    # def _compute_today(self):
-    #     """Compute the current date and time."""
-    #     for lead in self:
-    #         lead.today_start = datetime.now(pytz.timezone(self.env.user.tz or 'UTC')).replace(hour=0, minute=0, second=0, microsecond=0).astimezone(pytz.UTC).replace(tzinfo=None)
-    #         lead.today_end = datetime.now(pytz.timezone(self.env.user.tz or 'UTC')).replace(hour=23, minute=59, second=59, microsecond=99).astimezone(pytz.UTC).replace(tzinfo=None)
-
+    @api.onchange('rate', 'payment_status')
+    def _onchange_rate_payment_status(self):
+        """Update the customer_paid based on the payment_status."""
+        if self.rate:
+            if self.payment_status == 'paid':
+                self.customer_paid = self.rate
+                self.invioce_fully_paid = True
+            elif self.payment_status == 'unpaid':
+                self.customer_paid = 0.0
+                self.invioce_fully_paid = False
+            elif self.payment_status == 'partial' and self.customer_paid > self.rate:
+                self.customer_paid = self.rate
+                self.invioce_fully_paid = False
 
 
     @api.depends('invoice_ids')

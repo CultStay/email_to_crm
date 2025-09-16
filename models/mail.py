@@ -229,7 +229,7 @@ class CrmLead(models.Model):
     @api.onchange('rate', 'payment_status')
     def _onchange_rate_payment_status(self):
         """Update the customer_paid based on the payment_status."""
-        if self.rate:
+        if self.rate or self.payment_status:
             if self.payment_status == 'paid':
                 self.customer_paid = self.rate
                 self.invioce_fully_paid = True

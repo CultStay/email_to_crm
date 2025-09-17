@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_invoice_document_inherit" inherit_id="account.report_invoice_document">
+        <xpath expr="//th[span[text()='Amount']]" position="replace">
+            <th class="text-end"><span>MRP</span></th>
+        </xpath>
+    </template>
+</odoo>

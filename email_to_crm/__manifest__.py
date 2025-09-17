@@ -10,6 +10,7 @@
     'data': [
         'security/ir.model.access.csv',
         'security/security.xml',
+        'views/report_invoice_document.xml',
         'views/fetch_mail.xml',
         'views/crm_lead_inherit.xml',
         'wizard/create_invoice_wizard.xml',

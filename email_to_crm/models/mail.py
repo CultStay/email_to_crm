@@ -231,7 +231,7 @@ class CrmLead(models.Model):
     def _compute_customer_paid(self):
         """Compute the total amount paid by the customer based on related invoices."""
         for lead in self:
-            total_paid = sum(invoice.amount_total for invoice in lead.invoice_ids if invoice.move_type == 'out_invoice' and invoice.payment_state == 'paid')
+            total_paid = sum(invoice.amount_total for invoice in lead.invoice_ids if invoice.move_type == 'out_invoice' and invoice.payment_state in ['paid', 'in_payment'])
             lead.customer_paid = total_paid
 
     # @api.onchange('rate', 'payment_status')

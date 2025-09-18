@@ -135,6 +135,7 @@ class CrmLead(models.Model):
     customer_paid = fields.Float(
         string='Customer Paid',
         help="The amount paid by the customer.",
+        compute='_compute_customer_paid',
     )
 
     balance = fields.Float(
@@ -226,19 +227,26 @@ class CrmLead(models.Model):
             else:
                 lead.balance = 0.0
 
-    @api.onchange('rate', 'payment_status')
-    def _onchange_rate_payment_status(self):
-        """Update the customer_paid based on the payment_status."""
-        if self.rate or self.payment_status:
-            if self.payment_status == 'paid':
-                self.customer_paid = self.rate
-                self.invioce_fully_paid = True
-            elif self.payment_status == 'unpaid':
-                self.customer_paid = 0.0
-                self.invioce_fully_paid = False
-            elif self.payment_status == 'partial' and self.customer_paid > self.rate:
-                self.customer_paid = self.rate
-                self.invioce_fully_paid = False
+    @api.depends('invoice_ids')
+    def _compute_customer_paid(self):
+        """Compute the total amount paid by the customer based on related invoices."""
+        for lead in self:
+            total_paid = sum(invoice.amount_total for invoice in lead.invoice_ids if invoice.move_type == 'out_invoice' and invoice.payment_state == 'paid')
+            lead.customer_paid = total_paid
+
+    # @api.onchange('rate', 'payment_status')
+    # def _onchange_rate_payment_status(self):
+    #     """Update the customer_paid based on the payment_status."""
+    #     if self.rate or self.payment_status:
+    #         if self.payment_status == 'paid':
+    #             self.customer_paid = self.rate
+    #             self.invioce_fully_paid = True
+    #         elif self.payment_status == 'unpaid':
+    #             self.customer_paid = 0.0
+    #             self.invioce_fully_paid = False
+    #         elif self.payment_status == 'partial' and self.customer_paid > self.rate:
+    #             self.customer_paid = self.rate
+    #             self.invioce_fully_paid = False
 
 
     @api.depends('invoice_ids')

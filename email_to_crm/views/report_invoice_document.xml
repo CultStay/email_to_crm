@@ -5,7 +5,9 @@
             <th class="text-end"><span>MRP</span></th>
         </xpath>
         <xpath expr="//td[@name='td_subtotal']" position="before">
-            <span class="text-nowrap" t-field="line.product_id.lst_price"></span>
+            <td name="lst_price" class="text-end o_price_total">
+                <span class="text-nowrap" t-field="line.product_id.lst_price"></span>
+            </td>
         </xpath>
     </template>
 </odoo>

@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="report_invoice_document_inherit" inherit_id="account.report_invoice_document">
-        <xpath expr="//th[span[text()='Amount']]" position="replace">
+        <xpath expr="//th[span[text()='Amount']]" position="before">
             <th class="text-end"><span>MRP</span></th>
+        </xpath>
+        <xpath expr="//td[@name='td_subtotal']" position="before">
+            <span class="text-nowrap" t-field="line.product_id.lst_price"></span>
         </xpath>
     </template>
 </odoo>

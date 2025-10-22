@@ -10,11 +10,14 @@
     'data': [
         'security/ir.model.access.csv',
         'security/security.xml',
+        'report/daily_statement_report.xml',
         'views/report_invoice_document.xml',
         'views/fetch_mail.xml',
         'views/crm_lead_inherit.xml',
         'wizard/create_invoice_wizard.xml',
         'views/menu.xml',
+        'data/ir_cron.xml',
+        'views/res_config_settings.xml',  
     ],
 
     'license': 'OPL-1',

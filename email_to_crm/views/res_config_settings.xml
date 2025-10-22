@@ -1,0 +1,14 @@
+<odoo>
+    <record id="view_res_config_settings_crm_report" model="ir.ui.view">
+        <field name="name">res.config.settings.crm.report.email</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="crm.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form//app//setting[@id='crm_lead']" position="after">
+                <setting id="crm_lead" title="Send daily report to the email id" help="Email address to send the daily CRM lead payment report to.">
+                    <field name="crm_report_email"/>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+</odoo>

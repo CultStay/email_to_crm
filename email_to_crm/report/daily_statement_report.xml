@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <report
+        id="crm_lead_daily_payment_report"
+        model="crm.lead"
+        string="Daily Payment Report"
+        report_type="xlsx"
+        name="email_to_crm.crm_lead_daily_report_xlsx"
+        file="crm_lead_daily_payment"
+    />
+
+</odoo>

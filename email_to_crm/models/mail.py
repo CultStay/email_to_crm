@@ -5,10 +5,13 @@ import logging
 import pytz
 import re
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta
 import base64
 import requests
 
+import io
+from datetime import date
+from openpyxl import Workbook
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -51,7 +54,7 @@ class ProductTemplate(models.Model):
         help="The MakeMyTrip Property ID of this product.",
     )
 
-    @api.model
+    @api.model_create_multi
     def create(self, vals):
         res = super(ProductTemplate, self).create(vals)
         if not res.company_id and self.env.user.company_id:
@@ -211,7 +214,12 @@ class CrmLead(models.Model):
         help="Information about other guests associated with this lead.",
     )
 
-    @api.model
+    payment_mode = fields.Char(
+        string='Payment Mode',
+        help="The mode of payment used by the customer.",
+    )
+
+    @api.model_create_multi
     def create(self, vals):
         res = super(CrmLead, self).create(vals)
         if not res.company_id and self.env.user.company_id:
@@ -311,6 +319,127 @@ class CrmLead(models.Model):
                 'default_property_product_id': self.property_product_id.id,
             },
         }
+        
+        
+    @api.model
+    def _generate_and_send_report(self, freequency):
+        today = date.today()
+
+        leads = self.search([
+            ('invoice_ids', '!=', False),
+        ])
+
+        # Create Excel Workbook
+        wb = Workbook()
+        ws = wb.active
+        if freequency == 'Daily':
+            ws.title = f"CRM Report {today}"
+
+            headers = [
+                'Partner Name', 'Property Name', 'Check-in Date', 'Check-out Date',
+                'Advance Payment', 'Balance To Pay', 'Total Payment Today',
+                'Total Amount', 'Transaction ID', 'Payment Mode', 'Portal Source'
+            ]
+            ws.append(headers)
+
+            for lead in leads:
+                total_payment_today = 0
+                total_amount = 0
+                transaction_id = ''
+                payment_mode = ''
+
+                for inv in lead.invoice_ids.filtered(lambda i: i.state == 'posted'):
+                    if inv.invoice_date == today:
+                        total_payment_today += inv.amount_total
+                    total_amount += inv.amount_total
+                    transaction_id = inv.payment_reference or ''
+                    payment_mode = inv.payment_state or ''
+                if total_payment_today == 0:
+                    continue  # Skip leads with no payment today
+                ws.append([
+                    lead.partner_id.name or '',
+                    lead.property_product_id.name or '',
+                    lead.check_in or '',
+                    lead.check_out or '',
+                    lead.customer_paid or 0,
+                    lead.balance or 0,
+                    total_payment_today,
+                    total_amount,
+                    transaction_id,
+                    payment_mode,
+                    lead.payment_mode or '',
+                ])
+        if freequency == 'Weekly':
+            ws.title = f"Weekly CRM Report {today}"
+
+            headers = [
+                'Partner Name', 'Property Name', 'Check-in Date', 'Check-out Date',
+                'Advance Payment', 'Balance To Pay', 'Total Amount', 'Portal Source'
+            ]
+            ws.append(headers)
+
+            for lead in leads:
+                total_payment_today = 0
+                total_amount = 0
+                transaction_id = ''
+                payment_mode = ''
+
+                for inv in lead.invoice_ids.filtered(lambda i: i.state == 'posted'):
+                    if inv.invoice_date and inv.invoice_date >= today - timedelta(days=7):
+                        total_amount += inv.amount_total
+                        transaction_id = inv.payment_reference or ''
+                        payment_mode = inv.payment_state or ''
+                if total_amount == 0:
+                    continue  # Skip leads with no payment in the week
+                ws.append([
+                    lead.partner_id.name or '',
+                    lead.property_product_id.name or '',
+                    lead.check_in or '',
+                    lead.check_out or '',
+                    lead.customer_paid or 0,
+                    lead.balance or 0,
+                    total_amount,
+                    transaction_id,
+                    payment_mode,
+                    lead.payment_mode or '',
+                ])
+
+        # Save Excel to memory
+        fp = io.BytesIO()
+        if ws.max_row > 1:
+            wb.save(fp)
+        else:
+            fp.close()
+            _logger.info('No data rows after headers; Excel report not generated.')
+            return
+        fp.seek(0)
+        file_data = base64.b64encode(fp.read())
+        fp.close()
+
+        # Create attachment
+        attachment = self.env['ir.attachment'].create({
+            'name': f"{freequency}_CRM_Report_{today}.xlsx",
+            'type': 'binary',
+            'datas': file_data,
+            'res_model': 'crm.lead',
+            'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        })
+
+        # Get recipient email
+        recipient = self.env['ir.config_parameter'].sudo().get_param('crm.report_email')
+
+        if recipient and total_amount > 0:
+            mail_values = {
+                'subject': f'{freequency} CRM Report - {today}',
+                'body_html': '<p>Hello,</p><p>Attached is the daily CRM revenue report.</p>',
+                'email_to': recipient,
+                'attachment_ids': [(6, 0, [attachment.id])],
+            }
+            self.env['mail.mail'].create(mail_values).send()
+        else:
+            _logger.warning("No CRM report email configured in settings or no transactions found for the time being.")
+        
+
 
 
 class FetchmailServer(models.Model):

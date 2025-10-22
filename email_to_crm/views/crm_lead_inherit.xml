@@ -43,8 +43,9 @@
                 <field name="rate" string="Rate"/>
                 <field name="customer_paid" string="Customer Paid" readonly="1"/>
                 <field name="balance" string="Balance" readonly="1"/>
+                <field name="payment_mode" />
                 <field name="payment_transaction_id" />
-                <field name="payment_status" string="Payment Status"/>
+                <field name="payment_status" string="Payment Status" />
             </xpath>
             <xpath expr="//form//field[@name='partner_id']" position="attributes">
                 <attribute name="required">1</attribute>
@@ -52,8 +53,6 @@
             <xpath expr="//field[@name='tag_ids']" position="after">
                 <field name="booking_id" string="Booking ID"/>
                 <field name="booking_url" string="Booking URL" invisible="booking_url == ''"/>
-                <!-- <field name="today_start" invisible="1"/>
-                <field name="today_end" invisible="1"/> -->
                 <field name="check_in" string="Check In" required="1"/>
                 <field name="check_out" string="Check Out" required="1"/>
                 <field name="property_product_id" string="Property" required="1"/>
@@ -91,10 +90,9 @@
                 <attribute name="string">Name</attribute>
             </xpath>
             <xpath expr="//list//field[@name='name']" position="after">
-                <!-- <field name="today_start" column_invisible="1" />
-                <field name="today_end" column_invisible="1" /> -->
                 <field name="check_in" string="Check In"/>
                 <field name="check_out" string="Check Out"/>
+                <field name="payment_mode" />
                 <field name="property_id" string="Property"/>
                 <field name="booking_id" string="Booking ID"/>
                 <field name="rate" string="Rate"/>

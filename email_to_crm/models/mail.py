@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import base64
 import requests
 
+# models/crm_lead.py
 import io
 from datetime import date
 from openpyxl import Workbook
@@ -430,6 +431,7 @@ class CrmLead(models.Model):
 
         if recipient and total_amount > 0:
             mail_values = {
+                'email_from': self.env.user.email_formatted,
                 'subject': f'{freequency} CRM Report - {today}',
                 'body_html': '<p>Hello,</p><p>Attached is the daily CRM revenue report.</p>',
                 'email_to': recipient,

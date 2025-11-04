@@ -4,3 +4,7 @@ class ResConfigSettings(models.TransientModel):
     _inherit = 'res.config.settings'
 
     crm_report_email = fields.Char(string="CRM Report Email", config_parameter='crm.report_email')
+    account_report_email = fields.Char(
+        string="Accounting Report Email",
+        config_parameter='account.report_email'
+    )

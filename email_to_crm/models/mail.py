@@ -323,125 +323,239 @@ class CrmLead(models.Model):
         
         
     @api.model
-    def _generate_and_send_report(self, freequency):
+    def _generate_and_send_check_in_report(self, frequency):
         today = date.today()
 
-        leads = self.search([
-            ('invoice_ids', '!=', False),
-        ])
+        leads = self.search([('invoice_ids', '!=', False)])
 
-        # Create Excel Workbook
-        wb = Workbook()
-        ws = wb.active
-        if freequency == 'Daily':
-            ws.title = f"CRM Report {today}"
+        # Start HTML email body
+        html_table = f"""
+        <p>Hello,</p>
+        <p>Please find below the <b>{frequency}</b> CRM Report for <b>{today.strftime('%d-%b-%Y')}</b>.</p>
+        <table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse; width:100%; font-family:Arial; font-size:13px;">
+            <thead style="background-color:#f2f2f2; text-align:center;">
+                <tr>
+                    <th>Guest Name</th>
+                    <th>Room Name</th>
+                    <th>City</th>
+                    <th>Check-in (Today)</th>
+                    <th>Payment Made (Total)</th>
+                    <th>Balance</th>
+                    <th>Days Stay</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
 
-            headers = [
-                'Partner Name', 'Property Name', 'Check-in Date', 'Check-out Date',
-                'Advance Payment', 'Balance To Pay', 'Total Payment Today',
-                'Total Amount', 'Transaction ID', 'Payment Mode', 'Portal Source'
-            ]
-            ws.append(headers)
+        total_payment_sum = 0
+        total_balance_sum = 0
 
-            for lead in leads:
-                total_payment_today = 0
-                total_amount = 0
-                transaction_id = ''
-                payment_mode = ''
+        for lead in leads:
+            total_payment = 0
 
-                for inv in lead.invoice_ids.filtered(lambda i: i.state == 'posted'):
-                    if inv.invoice_date == today:
-                        total_payment_today += inv.amount_total
-                    total_amount += inv.amount_total
-                    transaction_id = inv.payment_reference or ''
-                    payment_mode = inv.payment_state or ''
-                if total_payment_today == 0:
-                    continue  # Skip leads with no payment today
-                ws.append([
-                    lead.partner_id.name or '',
-                    lead.property_product_id.name or '',
-                    lead.check_in or '',
-                    lead.check_out or '',
-                    lead.customer_paid or 0,
-                    lead.balance or 0,
-                    total_payment_today,
-                    total_amount,
-                    transaction_id,
-                    payment_mode,
-                    lead.payment_mode or '',
-                ])
-        if freequency == 'Weekly':
-            ws.title = f"Weekly CRM Report {today}"
+            # Calculate total payments from invoices
+            for inv in lead.invoice_ids.filtered(lambda i: i.state == 'posted'):
+                if frequency == 'Daily' and inv.invoice_date == today:
+                    total_payment += inv.amount_total
+                elif frequency == 'Weekly' and inv.invoice_date and inv.invoice_date >= today - timedelta(days=7):
+                    total_payment += inv.amount_total
 
-            headers = [
-                'Partner Name', 'Property Name', 'Check-in Date', 'Check-out Date',
-                'Advance Payment', 'Balance To Pay', 'Total Amount', 'Portal Source'
-            ]
-            ws.append(headers)
+            if total_payment == 0:
+                continue  # Skip leads with no payment in the period
 
-            for lead in leads:
-                total_payment_today = 0
-                total_amount = 0
-                transaction_id = ''
-                payment_mode = ''
+            total_payment_sum += total_payment
+            total_balance_sum += lead.balance or 0
 
-                for inv in lead.invoice_ids.filtered(lambda i: i.state == 'posted'):
-                    if inv.invoice_date and inv.invoice_date >= today - timedelta(days=7):
-                        total_amount += inv.amount_total
-                        transaction_id = inv.payment_reference or ''
-                        payment_mode = inv.payment_state or ''
-                if total_amount == 0:
-                    continue  # Skip leads with no payment in the week
-                ws.append([
-                    lead.partner_id.name or '',
-                    lead.property_product_id.name or '',
-                    lead.check_in or '',
-                    lead.check_out or '',
-                    lead.customer_paid or 0,
-                    lead.balance or 0,
-                    total_amount,
-                    transaction_id,
-                    payment_mode,
-                    lead.payment_mode or '',
-                ])
+            # Calculate stay days
+            days_stay = 0
+            if lead.check_in and lead.check_out:
+                days_stay = (lead.check_out - lead.check_in).days
+            if lead.property_product_id.city:
+                city = lead.property_product_id.city
+            elif lead.city:
+                city = lead.city
+            else:
+                city = ''
 
-        # Save Excel to memory
-        fp = io.BytesIO()
-        if ws.max_row > 1:
-            wb.save(fp)
-        else:
-            fp.close()
-            _logger.info('No data rows after headers; Excel report not generated.')
-            return
-        fp.seek(0)
-        file_data = base64.b64encode(fp.read())
-        fp.close()
+            html_table += f"""
+                <tr>
+                    <td>{lead.partner_id.name or ''}</td>
+                    <td>{lead.property_product_id.name or ''}</td>
+                    <td>{city or ''}</td>
+                    <td>{lead.check_in.strftime('%d-%b-%Y') if lead.check_in else ''}</td>
+                    <td style="text-align:right;">{total_payment:.2f}</td>
+                    <td style="text-align:right;">{lead.balance or 0:.2f}</td>
+                    <td style="text-align:center;">{days_stay}</td>
+                </tr>
+            """
 
-        # Create attachment
-        attachment = self.env['ir.attachment'].create({
-            'name': f"{freequency}_CRM_Report_{today}.xlsx",
-            'type': 'binary',
-            'datas': file_data,
-            'res_model': 'crm.lead',
-            'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        })
+        # Add totals row
+        html_table += f"""
+            </tbody>
+            <tfoot style="font-weight:bold; background-color:#e8e8e8;">
+                <tr>
+                    <td colspan="4" style="text-align:right;">Total:</td>
+                    <td style="text-align:right;">{total_payment_sum:.2f}</td>
+                    <td style="text-align:right;">{total_balance_sum:.2f}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+        <br>
+        <p>Regards,<br/>Odoo System</p>
+        """
 
-        # Get recipient email
+        # Recipient email from system parameters
         recipient = self.env['ir.config_parameter'].sudo().get_param('crm.report_email')
 
-        if recipient and total_amount > 0:
+        if recipient:
             mail_values = {
                 'email_from': self.env.user.email_formatted,
-                'subject': f'{freequency} CRM Report - {today}',
-                'body_html': '<p>Hello,</p><p>Attached is the daily CRM revenue report.</p>',
+                'subject': f'{frequency} CRM Report - {today.strftime("%d %B %Y")}',
+                'body_html': html_table,
                 'email_to': recipient,
-                'attachment_ids': [(6, 0, [attachment.id])],
             }
             self.env['mail.mail'].create(mail_values).send()
+            _logger.info("CRM report email sent to %s", recipient)
         else:
-            _logger.warning("No CRM report email configured in settings or no transactions found for the time being.")
-        
+            _logger.warning("No CRM report email configured or no transactions found for this period.")
 
+    def _generate_daily_sales_report(self, frequency):
+        today = date.today()
+        sales_leads = self.search([
+            ('check_in', '>=', datetime.combine(today, datetime.min.time())),
+            ('check_in', '<', datetime.combine(today + timedelta(days=1), datetime.min.time())),
+        ])
+        if not sales_leads:
+            return
+        # Prepare email content
+        html_table = f"""
+        <p>Hello,</p>
+        <p>Please find below the <b>{frequency}</b> CRM Report for <b>{today.strftime('%d-%b-%Y')}</b>.</p>
+        <table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse; width:100%; font-family:Arial; font-size:13px;">
+            <thead style="background-color:#f2f2f2; text-align:center;">
+                <tr>
+                    <th>Room Name</th>
+                    <th>Price</th>
+                    <th>Sold At</th>
+                    <th>Payment Mode</th>
+                    <th>Balance</th>
+                    <th>City</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+        total_payment_sum = 0
+        total_balance_sum = 0
+        for lead in sales_leads:
+            total_payment = 0
+            for inv in lead.invoice_ids.filtered(lambda i: i.state == 'posted' and i.invoice_date == today):
+                total_payment += inv.amount_total
+            total_payment_sum += total_payment
+            total_balance_sum += lead.balance or 0
+            if lead.property_product_id.city:
+                city = lead.property_product_id.city
+            elif lead.city:
+                city = lead.city
+            else:
+                city = ''
+            html_table += f"""
+                <tr>
+                    <td>{lead.property_product_id.name or ''}</td>
+                    <td style="text-align:right;">{lead.rate or 0:.2f}</td>
+                    <td>{lead.customer_paid}</td>
+                    <td>{lead.payment_mode or ''}</td>
+                    <td style="text-align:right;">{lead.balance or 0:.2f}</td>
+                    <td>{city or ''}</td>
+                </tr>
+            """
+        # Add totals row
+        html_table += f"""
+            </tbody>
+            <tfoot style="font-weight:bold; background-color:#e8e8e8;">
+                <tr>
+                    <td style="text-align:right;" colspan="1">Total:</td>
+                    <td></td>
+                    <td></td>
+                    <td style="text-align:right;">{total_payment_sum:.2f}</td>
+                    <td style="text-align:right;">{total_balance_sum:.2f}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+        <br>
+        <p>Regards,<br/>Odoo System</p>
+        """
+        # Recipient email from system parameters
+        recipient = self.env['ir.config_parameter'].sudo().get_param('crm.report_email')
+        if recipient:
+            mail_values = {
+                'email_from': self.env.user.email_formatted,
+                'subject': f'{frequency} Sales CRM Report - {today.strftime("%d %B %Y")}',
+                'body_html': html_table,
+                'email_to': recipient,
+            }
+            self.env['mail.mail'].create(mail_values).send()
+            _logger.info("Sales CRM report email sent to %s", recipient)
+
+    def _generate_daily_unsold_rooms_report(self):
+        today = date.today()
+        unsold_products = self.env['product.template'].search([
+            ('company_id', '=', self.env.user.company_id.id),
+        ])
+        unsold_rooms = []
+        for product in unsold_products:
+            bookings_count = self.search_count([
+                ('property_product_id', '=', product.id),
+                ('check_in', '>=', datetime.combine(today, datetime.min.time())),
+                ('check_in', '<', datetime.combine(today + timedelta(days=1), datetime.min.time())),
+            ])
+            if bookings_count == 0:
+                unsold_rooms.append(product)
+        if not unsold_rooms:
+            return
+        # Prepare email content
+        html_table = f"""
+        <p>Hello,</p>
+        <p>Please find below the Daily Unsold Rooms Report for <b>{today.strftime('%d-%b-%Y')}</b>.</p>
+        <table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse; width:100%; font-family:Arial; font-size:13px;">
+            <thead style="background-color:#f2f2f2; text-align:center;">
+                <tr>
+                    <th>Room Name</th>
+                    <th>Price</th>
+                    <th>City</th>
+                    <th>Number of Rooms</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+        for product in unsold_rooms:
+            html_table += f"""
+                <tr>
+                    <td>{product.name or ''}</td>
+                    <td>{product.list_price or ''}</td>
+                    <td>{product.city or ''}</td>
+                    <td style="text-align:right;">{product.number_of_rooms or 0}</td>
+                </tr>
+            """
+        html_table += """
+            </tbody>
+        </table>
+        <br>
+        <p>Regards,<br/>Odoo System</p>
+        """
+        # Recipient email from system parameters
+        recipient = self.env['ir.config_parameter'].sudo().get_param('crm.report_email')
+        if recipient:
+            mail_values = {
+                'email_from': self.env.user.email_formatted,
+                'subject': f'Daily Unsold Rooms Report - {today.strftime("%d %B %Y")}',
+                'body_html': html_table,
+                'email_to': recipient,
+            }
+            self.env['mail.mail'].create(mail_values).send()
+            _logger.info("Unsold Rooms report email sent to %s", recipient)
+        
 
 
 class FetchmailServer(models.Model):

@@ -1,20 +1,85 @@
 <odoo>
     <record id="ir_cron_daily_crm_excel_report" model="ir.cron">
-        <field name="name">Daily CRM Excel Report</field>
+        <field name="name">Daily Check In Report</field>
         <field name="model_id" ref="model_crm_lead"/>
         <field name="state">code</field>
-        <field name="code">model._generate_and_send_report('Daily')</field>
+        <field name="user_id" ref="base.user_admin"/>
+        <field name="code">model._generate_and_send_check_in_report('Daily')</field>
         <field name="interval_number">1</field>
         <field name="interval_type">days</field>
         <field name="active">True</field>
     </record>
     <record id="ir_cron_weekly_crm_excel_report" model="ir.cron">
-        <field name="name">Weekly CRM Excel Report</field>
+        <field name="name">Weekly Check In Report</field>
         <field name="model_id" ref="model_crm_lead"/>
+        <field name="user_id" ref="base.user_admin"/>
         <field name="state">code</field>
-        <field name="code">model._generate_and_send_report('Weekly')</field>
+        <field name="code">model._generate_and_send_check_in_report('Weekly')</field>
         <field name="interval_number">1</field>
         <field name="interval_type">weeks</field>
         <field name="active">True</field>
     </record>
+
+    <record id="ir_cron_daily_account_report" model="ir.cron">
+        <field name="name">Daily Sales Report</field>
+        <field name="model_id" ref="model_crm_lead"/>
+        <field name="state">code</field>
+        <field name="user_id" ref="base.user_admin"/>
+        <field name="code">model._generate_daily_sales_report('Daily')</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
+
+    <record id="ir_cron_weekly_account_report" model="ir.cron">
+        <field name="name">Weekly Sales Report</field>
+        <field name="model_id" ref="account.model_account_move"/>
+        <field name="state">code</field>
+        <field name="user_id" ref="base.user_admin"/>
+        <field name="code">model._generate_and_send_account_report('Weekly')</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">weeks</field>
+        <field name="active">True</field>
+    </record>
+    <record id="ir_cron_daiy_credit_report" model="ir.cron">
+        <field name="name">Daily Credit Report</field>
+        <field name="model_id" ref="account.model_account_move"/>
+        <field name="state">code</field>
+        <field name="user_id" ref="base.user_admin"/>
+        <field name="code">model._send_daily_credit_report()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
+    <record id="ir_cron_daily_payment_report" model="ir.cron">
+        <field name="name">Daily Payment Report</field>
+        <field name="model_id" ref="account.model_account_move"/>
+        <field name="state">code</field>
+        <field name="user_id" ref="base.user_admin"/>
+        <field name="code">model._send_daily_payment_report()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
+    <record id="ir_cron_daily_return_report" model="ir.cron">
+        <field name="name">Daily Return Report</field>
+        <field name="model_id" ref="stock.model_stock_picking"/>
+        <field name="state">code</field>
+        <field name="user_id" ref="base.user_admin"/>
+        <field name="code">model._send_daily_return_report()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
+    <record id="ir_cron_daily_unsold_property_details" model="ir.cron">
+        <field name="name">Daily Unsold Property Report</field>
+        <field name="model_id" ref="model_crm_lead"/>
+        <field name="state">code</field>
+        <field name="user_id" ref="base.user_admin"/>
+        <field name="code">model._generate_daily_unsold_rooms_report()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
+   
 </odoo>

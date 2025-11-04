@@ -5,8 +5,12 @@
         <field name="inherit_id" ref="crm.res_config_settings_view_form"/>
         <field name="arch" type="xml">
             <xpath expr="//form//app//setting[@id='crm_lead']" position="after">
-                <setting id="crm_lead" title="Send daily report to the email id" help="Email address to send the daily CRM lead payment report to.">
+                <setting id="crm_lead" invisible="company_id == 2" title="Send daily, weekly report to the email id" help="Email address to send the daily CRM lead payment report to.">
                     <field name="crm_report_email"/>
+                </setting>
+               <setting id="account_daily_report_setting" invisible="company_id == 1" title="Send daily accounting report to email(s)"
+                    help="Comma-separated list of email addresses to receive the daily accounting report.">
+                    <field name="account_report_email" string="Accounting Report Email"/>
                 </setting>
             </xpath>
         </field>

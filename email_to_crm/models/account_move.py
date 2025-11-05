@@ -10,6 +10,12 @@ _logger = logging.getLogger(__name__)
 class AccountMove(models.Model):
     _inherit = 'account.move'
 
+    lead_id = fields.Many2one(
+        'crm.lead',
+        string='Lead',
+        help="The lead associated with this invoice.",
+    )
+
     @api.model
     def _generate_and_send_account_report(self, frequency):
         """Generate daily or weekly accounting summary report and send to configured emails."""
@@ -30,9 +36,9 @@ class AccountMove(models.Model):
 
         # Payments Collected
         payments = self.env['account.payment'].search([
-            ('payment_date', '>=', start_date),
-            ('payment_date', '<=', today),
-            ('state', '=', 'posted')
+            ('ate', '>=', start_date),
+            ('date', '<=', today),
+            ('state', 'in', ['posted', 'in_process'])
         ])
         payment_count = len(payments)
         payment_sum = sum(payments.mapped('amount'))

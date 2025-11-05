@@ -41,7 +41,7 @@
         <field name="interval_type">weeks</field>
         <field name="active">True</field>
     </record>
-    <record id="ir_cron_daiy_credit_report" model="ir.cron">
+    <!-- <record id="ir_cron_daiy_credit_report" model="ir.cron">
         <field name="name">Daily Credit Report</field>
         <field name="model_id" ref="account.model_account_move"/>
         <field name="state">code</field>
@@ -50,7 +50,7 @@
         <field name="interval_number">1</field>
         <field name="interval_type">days</field>
         <field name="active">True</field>
-    </record>
+    </record> -->
     <record id="ir_cron_daily_payment_report" model="ir.cron">
         <field name="name">Daily Payment Report</field>
         <field name="model_id" ref="account.model_account_move"/>

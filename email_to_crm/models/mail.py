@@ -62,15 +62,6 @@ class ProductTemplate(models.Model):
             res.company_id = self.env.user.company_id.id
         return res
 
-class AccountMove(models.Model):
-    _inherit = 'account.move'
-
-    lead_id = fields.Many2one(
-        'crm.lead',
-        string='Lead',
-        help="The lead associated with this invoice.",
-    )
-
 
 
 class CrmLead(models.Model):
@@ -326,7 +317,7 @@ class CrmLead(models.Model):
     def _generate_and_send_check_in_report(self, frequency):
         today = date.today()
 
-        leads = self.search([('invoice_ids', '!=', False)])
+        leads = self.search([('invoice_ids', '!=', False),('company_id', '=', 1)])
 
         # Start HTML email body
         html_table = f"""
@@ -422,13 +413,15 @@ class CrmLead(models.Model):
 
     def _generate_daily_sales_report(self, frequency):
         today = date.today()
-        sales_leads = self.search([
-            ('check_in', '>=', datetime.combine(today, datetime.min.time())),
-            ('check_in', '<', datetime.combine(today + timedelta(days=1), datetime.min.time())),
+        today_paid_invoices = self.env['account.move'].search([
+            ('move_type', '=', 'out_invoice'),
+            ('invoice_date', '=', today),
+            ('payment_state', '=', 'paid'),
+            ('company_id', '=', 1)
         ])
-        if not sales_leads:
+        if not today_paid_invoices:
             return
-        # Prepare email content
+        # # Prepare email content
         html_table = f"""
         <p>Hello,</p>
         <p>Please find below the <b>{frequency}</b> CRM Report for <b>{today.strftime('%d-%b-%Y')}</b>.</p>
@@ -447,10 +440,11 @@ class CrmLead(models.Model):
         """
         total_payment_sum = 0
         total_balance_sum = 0
-        for lead in sales_leads:
-            total_payment = 0
-            for inv in lead.invoice_ids.filtered(lambda i: i.state == 'posted' and i.invoice_date == today):
-                total_payment += inv.amount_total
+        for invoice in today_paid_invoices:
+            lead = invoice.lead_id
+            if not lead:
+                continue
+            total_payment = invoice.amount_total
             total_payment_sum += total_payment
             total_balance_sum += lead.balance or 0
             if lead.property_product_id.city:
@@ -462,8 +456,8 @@ class CrmLead(models.Model):
             html_table += f"""
                 <tr>
                     <td>{lead.property_product_id.name or ''}</td>
-                    <td style="text-align:right;">{lead.rate or 0:.2f}</td>
-                    <td>{lead.customer_paid}</td>
+                    <td style="text-align:right;">{lead.property_product_id.list_price}</td>
+                    <td>{invoice.amount_total:.2f}</td>
                     <td>{lead.payment_mode or ''}</td>
                     <td style="text-align:right;">{lead.balance or 0:.2f}</td>
                     <td>{city or ''}</td>
@@ -501,7 +495,7 @@ class CrmLead(models.Model):
     def _generate_daily_unsold_rooms_report(self):
         today = date.today()
         unsold_products = self.env['product.template'].search([
-            ('company_id', '=', self.env.user.company_id.id),
+            ('company_id', '=', 1),
         ])
         unsold_rooms = []
         for product in unsold_products:

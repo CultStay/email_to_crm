@@ -189,6 +189,7 @@ class AccountMove(models.Model):
         domain_period = [
             ('date', '=', today),
             ('state', '=', 'paid')
+            ('company_id', '=', 2)
         ]
         payments = self.env['account.payment'].search(domain_period)
         if not payments:

@@ -188,7 +188,7 @@ class AccountMove(models.Model):
         today = date.today()
         domain_period = [
             ('date', '=', today),
-            ('state', '=', 'paid')
+            ('state', '=', 'paid'),
             ('company_id', '=', 2)
         ]
         payments = self.env['account.payment'].search(domain_period)

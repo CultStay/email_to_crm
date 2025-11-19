@@ -13,6 +13,7 @@
         'report/daily_statement_report.xml',
         'views/report_invoice_document.xml',
         'views/fetch_mail.xml',
+        'views/account_move.xml',
         'views/crm_lead_inherit.xml',
         'wizard/create_invoice_wizard.xml',
         'views/menu.xml',

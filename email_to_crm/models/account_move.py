@@ -16,6 +16,13 @@ class AccountMove(models.Model):
         help="The lead associated with this invoice.",
     )
 
+    phone_number = fields.Char(
+        string='Phone Number',
+        related='partner_id.phone',
+        store=True,
+        help="Phone number of the customer.",
+    )
+
     @api.model
     def _generate_and_send_account_report(self, frequency):
         """Generate daily or weekly accounting summary report and send to configured emails."""
@@ -228,5 +235,3 @@ class AccountMove(models.Model):
             'res_model': 'account.move',
             'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         })
-    
-            

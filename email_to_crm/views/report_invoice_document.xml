@@ -9,5 +9,8 @@
                 <span class="text-nowrap" t-options='{"widget": "monetary", "display_currency": o.currency_id}' t-field="line.product_id.lst_price"></span>
             </td>
         </xpath>
+        <xpath expr="//div[hasclass('invoice_main')]" position="after">
+            <p><strong>Phone Number:</strong> <span t-esc="o.phone_number"/></p>
+        </xpath>
     </template>
 </odoo>

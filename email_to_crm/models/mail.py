@@ -770,44 +770,6 @@ class MailThread(models.AbstractModel):
                         return
             if email_from.endswith('airbnb.com') or email_from == 'd365labs@gmail.com' or email_from == 'sudarsanan1996@gmail.com':
                 if 'reservation confirmed' in msg_dict.get('subject', '').lower():
-                    # summary = {
-                    #     "Airbnb Account ID": extract_field(r"Airbnb Account ID\s+(\d+)", cleaned_text),
-                    #     "Payout ID": extract_field(r"\*Payout ID\s+([A-Za-z0-9]+)", cleaned_text),
-                    #     "Payout Amount": extract_field(r"We've issued you a payout of\s+([₹\d,\.]+)", cleaned_text),
-                    #     "Estimated Arrival": extract_field(r"account by\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})", cleaned_text),
-                    #     "Total Amount Paid": extract_field(r"Amount paid.*?\n+([₹\d,\.]+)", cleaned_text)
-                    # }            
-                    # transactions = []
-                    # i = 0
-                    # while i < len(lines):
-                    #     if lines[i] in ["Reservation", "Tax Withholding for India Income", "Home"]:
-                    #         txn = {}
-                    #         txn["type"] = lines[i]
-                    #         txn["date_range"] = lines[i + 1]
-                    #         txn["reservation_code"], guest_name, property_short = lines[i + 2].split(" - ", 2)
-                    #         txn["guest_name"] = guest_name.strip()
-                    #         txn["property_short"] = property_short.strip()
-
-                    #         # Listing line
-                    #         listing_line = lines[i + 3]
-                    #         match = re.search(r"\(Listing ID:\s*(\d+)\)", listing_line)
-                    #         if match:
-                    #             txn["listing_id"] = match.group(1)
-                    #         txn["property_full"] = listing_line.split(" (Listing ID")[0].strip()
-
-                    #         raw_amount = lines[i + 4]
-                    #         clean_amount = raw_amount.replace("₹", "").replace(",", "").strip()
-                    #         txn["amount"] = float(clean_amount)
-
-                    #         # Optional: parse check-in and check-out
-                    #         checkin, checkout = txn["date_range"].split(" - ")
-                    #         txn["check_in"] = checkin.strip()
-                    #         txn["check_out"] = checkout.strip()
-
-                    #         transactions.append(txn)
-                    #         i += 5
-                    #     else:
-                    #         i += 1
                     data = {}
                     name_match = re.search(r"New booking confirmed!\s*(.*?)\s*arrives", cleaned_text)
                     if name_match:
@@ -953,7 +915,6 @@ class MailThread(models.AbstractModel):
                     "City": extract_field(r"Yelahanka, (.+?)\n", cleaned_text),
                     "Customer First Name": extract_field(r"PRIMARY GUEST DETAILS\s+(.+?)\n", cleaned_text),
                     "Customer Last Name": "",  # not separately available, you can split first/last manually if needed
-                    # Check-in and Check-out are below the headings, so find by scanning lines
                     "Check-in": next((lines[i + 2] + " "+ lines[i + 3] for i, line in enumerate(lines) if line.strip().upper() == "CHECK-IN" and i + 1 < len(lines)), None),
                     "Check-out": next((lines[i + 3] + " " + lines[i + 5] for i, line in enumerate(lines) if line.strip().upper() == "CHECK-OUT" and i + 1 < len(lines)), None),
                     "No. of Rooms": extract_field(r"Room\(s\)\s+(\d+)", cleaned_text),

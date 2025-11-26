@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import base64
 import requests
+from dateutil.parser import parse
 
 # models/crm_lead.py
 import io
@@ -768,106 +769,182 @@ class MailThread(models.AbstractModel):
                             _logger.info('Created Invoice ID : %s', invoice.id)
                         return
             if email_from.endswith('airbnb.com') or email_from == 'd365labs@gmail.com' or email_from == 'sudarsanan1996@gmail.com':
-                if 'payout was sent' in msg_dict.get('subject', '').lower():
-                    summary = {
-                        "Airbnb Account ID": extract_field(r"Airbnb Account ID\s+(\d+)", cleaned_text),
-                        "Payout ID": extract_field(r"\*Payout ID\s+([A-Za-z0-9]+)", cleaned_text),
-                        "Payout Amount": extract_field(r"We've issued you a payout of\s+([₹\d,\.]+)", cleaned_text),
-                        "Estimated Arrival": extract_field(r"account by\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})", cleaned_text),
-                        "Total Amount Paid": extract_field(r"Amount paid.*?\n+([₹\d,\.]+)", cleaned_text)
-                    }            
-                    transactions = []
-                    i = 0
-                    while i < len(lines):
-                        if lines[i] in ["Reservation", "Tax Withholding for India Income", "Home"]:
-                            txn = {}
-                            txn["type"] = lines[i]
-                            txn["date_range"] = lines[i + 1]
-                            txn["reservation_code"], guest_name, property_short = lines[i + 2].split(" - ", 2)
-                            txn["guest_name"] = guest_name.strip()
-                            txn["property_short"] = property_short.strip()
+                if 'reservation confirmed' in msg_dict.get('subject', '').lower():
+                    # summary = {
+                    #     "Airbnb Account ID": extract_field(r"Airbnb Account ID\s+(\d+)", cleaned_text),
+                    #     "Payout ID": extract_field(r"\*Payout ID\s+([A-Za-z0-9]+)", cleaned_text),
+                    #     "Payout Amount": extract_field(r"We've issued you a payout of\s+([₹\d,\.]+)", cleaned_text),
+                    #     "Estimated Arrival": extract_field(r"account by\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})", cleaned_text),
+                    #     "Total Amount Paid": extract_field(r"Amount paid.*?\n+([₹\d,\.]+)", cleaned_text)
+                    # }            
+                    # transactions = []
+                    # i = 0
+                    # while i < len(lines):
+                    #     if lines[i] in ["Reservation", "Tax Withholding for India Income", "Home"]:
+                    #         txn = {}
+                    #         txn["type"] = lines[i]
+                    #         txn["date_range"] = lines[i + 1]
+                    #         txn["reservation_code"], guest_name, property_short = lines[i + 2].split(" - ", 2)
+                    #         txn["guest_name"] = guest_name.strip()
+                    #         txn["property_short"] = property_short.strip()
 
-                            # Listing line
-                            listing_line = lines[i + 3]
-                            match = re.search(r"\(Listing ID:\s*(\d+)\)", listing_line)
-                            if match:
-                                txn["listing_id"] = match.group(1)
-                            txn["property_full"] = listing_line.split(" (Listing ID")[0].strip()
+                    #         # Listing line
+                    #         listing_line = lines[i + 3]
+                    #         match = re.search(r"\(Listing ID:\s*(\d+)\)", listing_line)
+                    #         if match:
+                    #             txn["listing_id"] = match.group(1)
+                    #         txn["property_full"] = listing_line.split(" (Listing ID")[0].strip()
 
-                            raw_amount = lines[i + 4]
-                            clean_amount = raw_amount.replace("₹", "").replace(",", "").strip()
-                            txn["amount"] = float(clean_amount)
+                    #         raw_amount = lines[i + 4]
+                    #         clean_amount = raw_amount.replace("₹", "").replace(",", "").strip()
+                    #         txn["amount"] = float(clean_amount)
 
-                            # Optional: parse check-in and check-out
-                            checkin, checkout = txn["date_range"].split(" - ")
-                            txn["check_in"] = checkin.strip()
-                            txn["check_out"] = checkout.strip()
+                    #         # Optional: parse check-in and check-out
+                    #         checkin, checkout = txn["date_range"].split(" - ")
+                    #         txn["check_in"] = checkin.strip()
+                    #         txn["check_out"] = checkout.strip()
 
-                            transactions.append(txn)
-                            i += 5
-                        else:
-                            i += 1            
-                    if summary.get('Airbnb Account ID'):
-                        for transaction in transactions:
-                            if transaction.get('type') in ['Reservation', 'Home']:
-                                if len(self.env['crm.lead'].search([('booking_id', '=', transaction.get('reservation_code'))])) == 0:
-                                    partner = self.env['res.partner'].create({
-                                        'name': f"{transaction.get('guest_name', '')}",
-                                        'email': transaction.get('email', ''),
-                                    })
-                                    lead = CRMLead.create({
-                                        'logo_src': 'email_to_crm/static/src/img/Airbnb_Logo.png' if not logo_src else logo_src,
-                                        'type': 'opportunity',
-                                        'name': f"Airbnb Booking {transaction.get('reservation_code', 'Unknown')} {transaction.get('guest_name', '')}",
-                                        'email_from': transaction.get('email', ''),
-                                        'check_in': pytz.timezone(self.env.user.tz or 'Asia/Kolkata').localize(
-                                            datetime.strptime(transaction.get('check_in', ''), "%m/%d/%Y").replace(hour=12, minute=0, second=0, microsecond=0)
-                                        ).astimezone(pytz.UTC).replace(tzinfo=None),
-                                        'check_out': pytz.timezone(self.env.user.tz or 'Asia/Kolkata').localize(
-                                            datetime.strptime(transaction.get('check_out', ''), "%m/%d/%Y").replace(hour=10, minute=0, second=0, microsecond=0)
-                                        ).astimezone(pytz.UTC).replace(tzinfo=None),
-                                        'rate': transaction.get('amount', 0),
-                                        'customer_paid': transaction.get('amount', 0),
-                                        'partner_name': 'Airbnb',
-                                        'partner_id': partner.id,
-                                        'booking_id': transaction.get('reservation_code', ''),
-                                        'net_rate': transaction.get('amount', 0),
-                                        'payment_status': 'paid' if transaction.get('amount') else 'unpaid',
-                                        'property_id': transaction.get('property_short', 0),
-                                        'listing_id': transaction.get('listing_id', ''),
-                                    })
-                                    product = self.env['product.template'].search([('name', 'like', transaction.get('property_short'))], limit=1)
+                    #         transactions.append(txn)
+                    #         i += 5
+                    #     else:
+                    #         i += 1
+                    data = {}
+                    name_match = re.search(r"New booking confirmed!\s*(.*?)\s*arrives", cleaned_text)
+                    if name_match:
+                        data['guest_name'] = name_match.group(1).strip() 
+                    # Check-in date
+                    checkin_match = re.search(r"Check-in\s*([A-Za-z]+,\s*[A-Za-z]+\s*\d+)", text)
+                    if checkin_match:
+                        checkin_match = parse(checkin_match.group(1).strip())
+                        checkin_match = checkin_match.replace(year=datetime.today().year)
+                        data['checkin_date'] = checkin_match
 
-                                    if product:
-                                        lead.property_product_id = product.id
-                                        lead.city = product.city
-                                    _logger.info('Created CRM Lead ID : %s', lead.id)
-                                    if transaction.get('amount') > 0:
-                                        product = self.env['product.product'].search([('name', 'like', transaction.get('property_short', ''))], limit=1)
-                                        invoice = self.env['account.move'].create({
-                                            'partner_id': partner.id,
-                                            'move_type': 'out_invoice',
-                                            'invoice_date': datetime.now().date(),
-                                            'lead_id': lead.id,
-                                            'invoice_line_ids': [(0, 0, {
-                                                'product_id': product.id if product else False,
-                                                'quantity': 1,
-                                                'price_unit': transaction.get('amount'),})],
-                                        })
-                                        invoice.action_post()
-                                        payment = self.env['account.payment'].create({
-                                            'payment_type': 'inbound',
-                                            'partner_type': 'customer',
-                                            'partner_id': partner.id,
-                                            'amount': transaction.get('amount'),
-                                            'journal_id': self.env['account.journal'].search([('type', '=', 'bank')], limit=1).id,
-                                            'payment_method_id': self.env.ref('account.account_payment_method_manual_in').id,
-                                        })
-                                        payment.action_post()
-                                        invoice.payment_state = 'paid'
-                                        lead.invioce_fully_paid = True
-                                        _logger.info('Created Invoice ID : %s', invoice.id)
-                        _logger.info('Processed Airbnb booking with Account ID: %s', summary.get('Airbnb Account ID'))
+                    # Check-in time
+                    checkin_time = re.search(r"Check-in.*?(\d{1,2}:\d{2}\s*[APM]{2})", text)
+                    if checkin_time:
+                        data['checkin_time'] = checkin_time.group(1)
+
+                    # Checkout date
+                    checkout_match = re.search(r"Checkout\s*([A-Za-z]+,\s*[A-Za-z]+\s*\d+)", text)
+                    if checkout_match:
+                        checkout_match = parse(checkout_match.group(1).strip())
+                        checkout_match = checkout_match.replace(year=datetime.today().year)
+                        data['checkout_date'] = checkout_match
+
+                    # Checkout time
+                    checkout_time = re.search(r"Checkout.*?(\d{1,2}:\d{2}\s*[APM]{2})", text)
+                    if checkout_time:
+                        data['checkout_time'] = checkout_time.group(1)
+                        t = parse(checkout_time.group(1)).time()
+                        data['checkout_date'] = data['checkout_date'].replace(
+                            hour=t.hour, minute=t.minute, second=0, microsecond=0
+                        )
+                    else:
+                        # Default Airbnb checkout
+                        data['checkout_date'] = data['checkout_date'].replace(
+                            hour=10, minute=0, second=0
+                        )
+
+                    if data.get('checkin_time'):
+                        t = parse(data['checkin_time']).time()
+                        data['checkin_date'] = data['checkin_date'].replace(
+                            hour=t.hour, minute=t.minute, second=0, microsecond=0
+                        )
+                    else:
+                        # Default Airbnb checkin
+                        data['checkin_date'] = data['checkin_date'].replace(
+                            hour=12, minute=0, second=0
+                        )
+                    
+
+                    # ===========================================
+                    # Convert to UTC naive datetime for Odoo
+                    # ===========================================
+                    tz = pytz.timezone('Asia/Kolkata')
+                    data['check_in'] = tz.localize(data['checkin_date']).astimezone(pytz.UTC).replace(tzinfo=None)
+                    data['check_out'] = tz.localize(data['checkout_date']).astimezone(pytz.UTC).replace(tzinfo=None)
+
+                    # Guests
+                    guests = re.search(r"Guests\s*([\d]+\s*adults?,\s*[\d]+\s*children?)", text)
+                    if guests:
+                        data['guest_count'] = guests.group(1)
+
+                    # Confirmation code
+                    confirmation = re.search(r"Confirmation code\s*([A-Z0-9]+)", text)
+                    if confirmation:
+                        data['confirmation_code'] = confirmation.group(1)
+
+                    # Guest paid total
+                    guest_total = re.search(r"Total \(INR\)\s*₹([\d,]+\.\d+)", text)
+                    if guest_total:
+                        data['guest_total'] = float(guest_total.group(1).replace(',', ''))
+
+                    # Host earns
+                    host_earn = re.search(r"You earn\s*₹([\d,]+\.\d+)", text)
+                    if host_earn:
+                        data['host_earnings'] = host_earn.group(1)
+
+                    # Occupancy taxes
+                    tax_match = re.search(r"Occupancy taxes\s*₹([\d,]+\.\d+)", text)
+                    if tax_match:
+                        data['tax_amount'] = tax_match.group(1)
+                    property_match = re.search(r"([\w\s\d,.-]+?)\s*Entire home/apt", text)
+                    if property_match:
+                        data['property_name'] = property_match.group(1).strip()
+     
+                    if len(self.env['crm.lead'].search([('booking_id', '=', data.get('confirmation_code'))])) == 0:
+                        partner = self.env['res.partner'].create({
+                            'name': f"{data.get('guest_name', '')}",
+                            'email': data.get('email', ''),
+                        })
+                        lead = CRMLead.create({
+                            'logo_src': 'email_to_crm/static/src/img/Airbnb_Logo.png' if not logo_src else logo_src,
+                            'type': 'opportunity',
+                            'name': f"Airbnb Booking {data.get('confirmation_code', 'Unknown')} {data.get('guest_name', '')}",
+                            'email_from': data.get('email', ''),
+                            'check_in': data.get('check_in', ''),
+                            'check_out':data.get('check_out', ''),
+                            'rate': data.get('guest_total', 0),
+                            'customer_paid': data.get('guest_total', 0),
+                            'partner_name': 'Airbnb',
+                            'partner_id': partner.id,
+                            'booking_id': data.get('confirmation_code', ''),
+                            'net_rate': data.get('guest_total', 0),
+                            'payment_status': 'paid' if data.get('guest_total') else 'unpaid',
+                            'property_id': data.get('property_name', 0),
+                        })
+                        product = self.env['product.template'].search([('name', 'like', data.get('property_name'))], limit=1)
+
+                        if product:
+                            lead.property_product_id = product.id
+                            lead.city = product.city
+                        _logger.info('Created CRM Lead ID : %s', lead.id)
+                        if data.get('guest_total') > 0:
+                            product = self.env['product.product'].search([('name', 'like', data.get('property_name', ''))], limit=1)
+                            invoice = self.env['account.move'].create({
+                                'partner_id': partner.id,
+                                'move_type': 'out_invoice',
+                                'invoice_date': datetime.now().date(),
+                                'lead_id': lead.id,
+                                'invoice_line_ids': [(0, 0, {
+                                    'product_id': product.id if product else False,
+                                    'quantity': 1,
+                                    'price_unit': data.get('guest_total'),})],
+                            })
+                            invoice.action_post()
+                            payment = self.env['account.payment'].create({
+                                'payment_type': 'inbound',
+                                'partner_type': 'customer',
+                                'partner_id': partner.id,
+                                'amount': data.get('guest_total'),
+                                'journal_id': self.env['account.journal'].search([('type', '=', 'bank')], limit=1).id,
+                                'payment_method_id': self.env.ref('account.account_payment_method_manual_in').id,
+                            })
+                            payment.action_post()
+                            invoice.payment_state = 'paid'
+                            lead.invioce_fully_paid = True
+                            _logger.info('Created Invoice ID : %s', invoice.id)
+                        _logger.info('Processed Airbnb booking for : %s', data.get('guest_name'))
                         return
             if email_from.endswith('go-mmt.com')  or email_from == 'd365labs@gmail.com' or email_from == 'sudarsanan1996@gmail.com':
                 data = {

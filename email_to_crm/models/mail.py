@@ -417,7 +417,7 @@ class CrmLead(models.Model):
         today_paid_invoices = self.env['account.move'].search([
             ('move_type', '=', 'out_invoice'),
             ('invoice_date', '=', today),
-            ('payment_state', '=', 'paid'),
+            # ('payment_state', 'in', ['paid', 'in_payment','partial']),
             ('company_id', '=', 1)
         ])
         if not today_paid_invoices:
@@ -442,6 +442,8 @@ class CrmLead(models.Model):
         total_payment_sum = 0
         total_balance_sum = 0
         for invoice in today_paid_invoices:
+            if invoice.payment_state not in ['paid', 'in_payment','partial']:
+                return
             lead = invoice.lead_id
             if not lead:
                 continue

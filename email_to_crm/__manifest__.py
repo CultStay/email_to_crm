@@ -6,7 +6,7 @@
     'website': '',
     'summary': 'Connect Email and create leads when a new Booking has come',
     'description': """Email CRM integration""",
-    'depends': ['base', 'contacts', 'crm', 'stock', 'sale', 'mail', 'account','sale_crm', 'purchase', 'sale_management'],
+    'depends': ['base','web', 'contacts', 'crm', 'stock', 'sale', 'mail', 'account','sale_crm', 'purchase', 'sale_management', 'l10n_in'],
     'data': [
         'security/ir.model.access.csv',
         'security/security.xml',

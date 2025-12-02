@@ -64,3 +64,8 @@ class StockPicking(models.Model):
             'res_model': 'stock.picking',
             'res_id': 0,
         })
+
+class StockLocation(models.Model):
+    _inherit = 'stock.location'
+
+    is_allowed_sales = fields.Boolean(String='Allow Location')

@@ -13,4 +13,15 @@
             <p><strong>Phone Number:</strong> <span t-esc="o.phone_number"/></p>
         </xpath>
     </template>
+    <template id="l10n_in_report_invoice_document_inherit_1" inherit_id="l10n_in.l10n_in_report_invoice_document_inherit">
+        <xpath expr="//t[@t-if='hsn_summary']" position="replace">
+        </xpath>        
+    </template>
+    <template id="inherit_external_layout_wave" inherit_id="web.external_layout_wave">
+        <xpath expr="//span[@t-field='company.company_details']" position="after">
+            <p t-out="company.vat"/>
+        </xpath>
+        <xpath expr="//div[@t-field='company.report_footer']" position="replace">
+        </xpath>
+    </template>
 </odoo>

@@ -17,6 +17,7 @@
         'views/crm_lead_inherit.xml',
         'wizard/create_invoice_wizard.xml',
         'views/menu.xml',
+        'views/stock_location.xml',
         'data/ir_cron.xml',
         'views/res_config_settings.xml',  
     ],

@@ -68,4 +68,4 @@ class StockPicking(models.Model):
 class StockLocation(models.Model):
     _inherit = 'stock.location'
 
-    is_allowed_sales = fields.Boolean(String='Allow Location')
+    is_allowed_sales = fields.Boolean(string='Show Location')

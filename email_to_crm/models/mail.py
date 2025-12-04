@@ -56,6 +56,8 @@ class ProductTemplate(models.Model):
         help="The MakeMyTrip Property ID of this product.",
     )
 
+    mrp_price = fields.Monetary(string="MRP")
+
     @api.model_create_multi
     def create(self, vals):
         res = super(ProductTemplate, self).create(vals)

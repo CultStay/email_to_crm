@@ -6,7 +6,7 @@
         </xpath>
         <xpath expr="//td[@name='td_subtotal']" position="before">
             <td name="lst_price" class="text-end o_price_total">
-                <span class="text-nowrap" t-options='{"widget": "monetary", "display_currency": o.currency_id}' t-field="line.product_id.lst_price"></span>
+                <span class="text-nowrap" t-options='{"widget": "monetary", "display_currency": o.currency_id}' t-field="line.product_id.mrp_price"></span>
             </td>
         </xpath>
         <xpath expr="//div[hasclass('invoice_main')]" position="before">

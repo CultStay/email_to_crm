@@ -403,11 +403,12 @@ class CrmLead(models.Model):
         recipient = self.env['ir.config_parameter'].sudo().get_param('crm.report_email')
 
         if recipient:
+            email_list = [email.strip() for email in recipient.split(',') if email.strip()]
             mail_values = {
                 'email_from': self.env.user.email_formatted,
                 'subject': f'{frequency} CRM Report - {today.strftime("%d %B %Y")}',
                 'body_html': html_table,
-                'email_to': recipient,
+                'email_to': email_list,
             }
             self.env['mail.mail'].create(mail_values).send()
             _logger.info("CRM report email sent to %s", recipient)
@@ -488,11 +489,12 @@ class CrmLead(models.Model):
         # Recipient email from system parameters
         recipient = self.env['ir.config_parameter'].sudo().get_param('crm.report_email')
         if recipient:
+            email_list = [email.strip() for email in recipient.split(',') if email.strip()]
             mail_values = {
                 'email_from': self.env.user.email_formatted,
                 'subject': f'{frequency} Sales CRM Report - {today.strftime("%d %B %Y")}',
                 'body_html': html_table,
-                'email_to': recipient,
+                'email_to': email_list,
             }
             self.env['mail.mail'].create(mail_values).send()
             _logger.info("Sales CRM report email sent to %s", recipient)
@@ -546,11 +548,12 @@ class CrmLead(models.Model):
         # Recipient email from system parameters
         recipient = self.env['ir.config_parameter'].sudo().get_param('crm.report_email')
         if recipient:
+            email_list = [email.strip() for email in recipient.split(',') if email.strip()]
             mail_values = {
                 'email_from': self.env.user.email_formatted,
                 'subject': f'Daily Unsold Rooms Report - {today.strftime("%d %B %Y")}',
                 'body_html': html_table,
-                'email_to': recipient,
+                'email_to': email_list,
             }
             self.env['mail.mail'].create(mail_values).send()
             _logger.info("Unsold Rooms report email sent to %s", recipient)

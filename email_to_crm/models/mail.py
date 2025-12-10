@@ -325,7 +325,7 @@ class CrmLead(models.Model):
         # Start HTML email body
         html_table = f"""
         <p>Hello,</p>
-        <p>Please find below the <b>{frequency}</b> CRM Report for <b>{today.strftime('%d-%b-%Y')}</b>.</p>
+        <p>Please find below the <b>{frequency}</b> Check in Report for <b>{today.strftime('%d-%b-%Y')}</b>.</p>
         <table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse; width:100%; font-family:Arial; font-size:13px;">
             <thead style="background-color:#f2f2f2; text-align:center;">
                 <tr>
@@ -333,7 +333,7 @@ class CrmLead(models.Model):
                     <th>Room Name</th>
                     <th>City</th>
                     <th>Check-in (Today)</th>
-                    <th>Payment Made (Total)</th>
+                    <th>Payment Made (Total Today)</th>
                     <th>Balance</th>
                     <th>Days Stay</th>
                 </tr>
@@ -346,6 +346,8 @@ class CrmLead(models.Model):
 
         for lead in leads:
             total_payment = 0
+            if lead.check_in != today:
+                continue
 
             # Calculate total payments from invoices
             for inv in lead.invoice_ids.filtered(lambda i: i.state == 'posted'):
@@ -412,7 +414,7 @@ class CrmLead(models.Model):
             self.env['mail.mail'].create(mail_values).send()
             _logger.info("CRM report email sent to %s", recipient)
         else:
-            _logger.warning("No CRM report email configured or no transactions found for this period.")
+            _logger.warning("No CRM report email configured or no check-in found for this date.")
 
     def _generate_daily_sales_report(self, frequency):
         today = date.today()

@@ -346,7 +346,8 @@ class CrmLead(models.Model):
             <tbody>
         """
 
-        total_payment_sum = 0
+        total_daily_payment_sum = 0
+        total_customer_paid_sum = 0
         total_balance_sum = 0
 
         for lead in leads:
@@ -354,6 +355,7 @@ class CrmLead(models.Model):
 
             # Calculate total payments from invoices
             for inv in lead.invoice_ids.filtered(lambda i: i.state == 'posted'):
+                total_customer_paid_sum += inv.amount_total
                 if frequency == 'Daily' and inv.invoice_date == today:
                     total_payment_today += inv.amount_total
                 elif frequency == 'Weekly' and inv.invoice_date and inv.invoice_date >= today - timedelta(days=7):
@@ -361,7 +363,7 @@ class CrmLead(models.Model):
 
 
 
-            total_payment_sum += total_payment_today
+            total_daily_payment_sum += total_payment_today
             total_balance_sum += lead.balance or 0
 
             # Calculate stay days
@@ -394,8 +396,8 @@ class CrmLead(models.Model):
             <tfoot style="font-weight:bold; background-color:#e8e8e8;">
                 <tr>
                     <td colspan="4" style="text-align:right;">Total:</td>
-                    <td style="text-align:right;">{total_payment_sum:.2f}</td>
-                    <td style="text-align:right;">{sum(inv.amount_total for inv in lead.invoice_ids.filtered(lambda i: i.state == 'posted')):.2f}</td>
+                    <td style="text-align:right;">{total_daily_payment_sum:.2f}</td>
+                    <td style="text-align:right;">{total_customer_paid_sum:.2f}</td>
                     <td style="text-align:right;">{total_balance_sum:.2f}</td>
                     <td></td>
                 </tr>
@@ -448,7 +450,7 @@ class CrmLead(models.Model):
             </thead>
             <tbody>
         """
-        total_payment_sum = 0
+        total_daily_payment_sum = 0
         total_balance_sum = 0
         for invoice in today_paid_invoices:
             if invoice.payment_state not in ['paid', 'in_payment','partial']:
@@ -457,7 +459,7 @@ class CrmLead(models.Model):
             if not lead:
                 continue
             total_payment = invoice.amount_total
-            total_payment_sum += total_payment
+            total_daily_payment_sum += total_payment
             total_balance_sum += lead.balance or 0
             if lead.property_product_id.city:
                 city = lead.property_product_id.city
@@ -484,7 +486,7 @@ class CrmLead(models.Model):
                     <td style="text-align:right;" colspan="1">Total:</td>
                     <td></td>
                     <td></td>
-                    <td style="text-align:right;">{total_payment_sum:.2f}</td>
+                    <td style="text-align:right;">{total_daily_payment_sum:.2f}</td>
                     <td></td>
                     <td style="text-align:right;">{total_balance_sum:.2f}</td>
                     <td></td>

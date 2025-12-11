@@ -338,7 +338,7 @@ class CrmLead(models.Model):
                     <th>City</th>
                     <th>Check-in (Today)</th>
                     <th>Payment Made (Today)</th>
-                    <th>Payment Made (Total Today)</th>
+                    <th>Payment Made (Total)</th>
                     <th>Balance</th>
                     <th>Days Stay</th>
                 </tr>

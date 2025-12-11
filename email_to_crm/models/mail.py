@@ -318,9 +318,13 @@ class CrmLead(models.Model):
         
     @api.model
     def _generate_and_send_check_in_report(self, frequency):
-        today = date.today()
+        today = fields.Date.today()
+        start = fields.Datetime.to_datetime(today)
+        end = fields.Datetime.to_datetime(today) + timedelta(days=1)
 
-        leads = self.search([('invoice_ids', '!=', False),('company_id', '=', 1)])
+        leads = self.search([('check_in', '>=', start),
+                            ('check_in', '<', end),
+                            ('company_id', '=', 1)])
 
         # Start HTML email body
         html_table = f"""
@@ -333,6 +337,7 @@ class CrmLead(models.Model):
                     <th>Room Name</th>
                     <th>City</th>
                     <th>Check-in (Today)</th>
+                    <th>Payment Made (Today)</th>
                     <th>Payment Made (Total)</th>
                     <th>Balance</th>
                     <th>Days Stay</th>
@@ -345,19 +350,18 @@ class CrmLead(models.Model):
         total_balance_sum = 0
 
         for lead in leads:
-            total_payment = 0
+            total_payment_today = 0
 
             # Calculate total payments from invoices
             for inv in lead.invoice_ids.filtered(lambda i: i.state == 'posted'):
                 if frequency == 'Daily' and inv.invoice_date == today:
-                    total_payment += inv.amount_total
+                    total_payment_today += inv.amount_total
                 elif frequency == 'Weekly' and inv.invoice_date and inv.invoice_date >= today - timedelta(days=7):
-                    total_payment += inv.amount_total
+                    total_payment_today += inv.amount_total
 
-            if total_payment == 0:
-                continue  # Skip leads with no payment in the period
 
-            total_payment_sum += total_payment
+
+            total_payment_sum += total_payment_today
             total_balance_sum += lead.balance or 0
 
             # Calculate stay days
@@ -377,7 +381,8 @@ class CrmLead(models.Model):
                     <td>{lead.property_product_id.name or ''}</td>
                     <td>{city or ''}</td>
                     <td>{lead.check_in.strftime('%d-%b-%Y') if lead.check_in else ''}</td>
-                    <td style="text-align:right;">{total_payment:.2f}</td>
+                    <td style="text-align:right;">{total_payment_today:.2f}</td>
+                    <td style="text-align:right;">{sum(inv.amount_total for inv in lead.invoice_ids.filtered(lambda i: i.state == 'posted')):.2f}</td>
                     <td style="text-align:right;">{lead.balance or 0:.2f}</td>
                     <td style="text-align:center;">{days_stay}</td>
                 </tr>
@@ -390,6 +395,7 @@ class CrmLead(models.Model):
                 <tr>
                     <td colspan="4" style="text-align:right;">Total:</td>
                     <td style="text-align:right;">{total_payment_sum:.2f}</td>
+                    <td style="text-align:right;">{sum(inv.amount_total for inv in lead.invoice_ids.filtered(lambda i: i.state == 'posted')):.2f}</td>
                     <td style="text-align:right;">{total_balance_sum:.2f}</td>
                     <td></td>
                 </tr>
@@ -432,6 +438,7 @@ class CrmLead(models.Model):
             <thead style="background-color:#f2f2f2; text-align:center;">
                 <tr>
                     <th>Room Name</th>
+                    <th>Gust name</th>
                     <th>Price</th>
                     <th>Sold At</th>
                     <th>Payment Mode</th>
@@ -461,6 +468,7 @@ class CrmLead(models.Model):
             html_table += f"""
                 <tr>
                     <td>{lead.property_product_id.name or ''}</td>
+                    <td>{lead.partner_id.name or ''}</td>
                     <td style="text-align:right;">{lead.property_product_id.list_price}</td>
                     <td>{invoice.amount_total:.2f}</td>
                     <td>{lead.payment_mode or ''}</td>
@@ -477,6 +485,7 @@ class CrmLead(models.Model):
                     <td></td>
                     <td></td>
                     <td style="text-align:right;">{total_payment_sum:.2f}</td>
+                    <td></td>
                     <td style="text-align:right;">{total_balance_sum:.2f}</td>
                     <td></td>
                 </tr>

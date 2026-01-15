@@ -43,7 +43,7 @@ class AccountMove(models.Model):
 
         # Payments Collected
         payments = self.env['account.payment'].search([
-            ('ate', '>=', start_date),
+            ('date', '>=', start_date),
             ('date', '<=', today),
             ('state', 'in', ['posted', 'in_process'])
         ])

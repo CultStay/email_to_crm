@@ -1,4 +1,4 @@
-from odoo import models, fields, api, _
+from odoo import models, fields, api, _, SUPERUSER_ID
 from xmlrpc import client as xmlrpclib
 import email
 import logging
@@ -62,7 +62,7 @@ class ProductTemplate(models.Model):
     def create(self, vals):
         res = super(ProductTemplate, self).create(vals)
         if not res.company_id and self.env.user.company_id:
-            res.company_id = self.env.user.company_id.id
+            res.with_user(SUPERUSER_ID).company_id = self.env.company.id
         return res
 
 

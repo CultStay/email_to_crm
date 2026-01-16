@@ -27,7 +27,7 @@
         <field name="inherit_id" ref="crm.crm_lead_view_form"/>
         <field name="arch" type="xml">
             <xpath expr="//button[@name='action_set_won_rainbowman']" position="attributes">
-                <attribute name="invisible">1</attribute>
+                <attribute name="invisible">company_id != 1</attribute>
             </xpath>
             <xpath expr="//button[@name='%(crm.crm_lead_lost_action)d']" position="attributes">
                 <attribute name="string">Cancel</attribute>
@@ -38,25 +38,25 @@
                 </button>
             </div>
             <xpath expr="//form//sheet//group//group[@name='opportunity_partner']//field[@name='lost_reason_id']" position="after">
-                <field name="aadhar_id" />
-                <field name="city" string="City" required="1"/>
-                <field name="rate" string="Rate"/>
-                <field name="customer_paid" string="Customer Paid" readonly="1"/>
-                <field name="balance" string="Balance" readonly="1"/>
-                <field name="payment_mode" />
-                <field name="payment_transaction_id" />
-                <field name="payment_status" string="Payment Status" />
+                <field name="aadhar_id" invisible="company_id != 1"/>
+                <field name="city" string="City" required="company_id == 1" invisible="company_id != 1"/>
+                <field name="rate" string="Rate" invisible="company_id != 1"/>
+                <field name="customer_paid" string="Customer Paid" readonly="1" invisible="company_id != 1"/>
+                <field name="balance" string="Balance" readonly="1" invisible="company_id != 1"/>
+                <field name="payment_mode" invisible="company_id != 1"/>
+                <field name="payment_transaction_id" invisible="company_id != 1"/>
+                <field name="payment_status" string="Payment Status" invisible="company_id != 1"/>
             </xpath>
             <xpath expr="//form//field[@name='partner_id']" position="attributes">
                 <attribute name="required">1</attribute>
             </xpath>
-            <xpath expr="//field[@name='tag_ids']" position="after">
-                <field name="booking_id" string="Booking ID"/>
-                <field name="booking_url" string="Booking URL" invisible="booking_url == ''"/>
-                <field name="check_in" string="Check In" required="1"/>
-                <field name="check_out" string="Check Out" required="1"/>
-                <field name="property_product_id" string="Property" required="1"/>
-                <field name="number_of_rooms" string="Number of Rooms" />
+            <xpath expr="//field[@name='tag_ids']" position="after" invisible="company_id != 1">
+                <field name="booking_id" string="Booking ID" invisible="company_id != 1"/>
+                <field name="booking_url" string="Booking URL" invisible="booking_url == False"/>
+                <field name="check_in" string="Check In" required="company_id != 1" invisible="company_id != 1"/>
+                <field name="check_out" string="Check Out" required="company_id != 1" invisible="company_id != 1"/>
+                <field name="property_product_id" string="Property" required="company_id != 1" invisible="company_id != 1"/>
+                <field name="number_of_rooms" string="Number of Rooms" invisible="company_id != 1" />
                 <field name="invioce_fully_paid" invisible="1" />
             </xpath>
         </field>
@@ -70,11 +70,11 @@
                 <button name="create_invoice" type="object" class="oe_highlight" icon="fa-file-text-o"
                     string="Create Invoice" data-hotkey="i"
                     title="Create an invoice from this opportunity"
-                    invisible="invioce_fully_paid"
+                    invisible="invioce_fully_paid or company_id != 1"
                     />
             </xpath>
             <xpath expr="//button[@name='action_sale_quotations_new']" position="attributes">
-                <attribute name="invisible">1</attribute>
+                <attribute name="invisible">company_id != 1</attribute>
             </xpath>
         </field>
     </record>
@@ -84,21 +84,22 @@
         <field name="inherit_id" ref="crm.crm_case_tree_view_oppor"/>
         <field name="arch" type="xml">
             <xpath expr="//list//field[@name='name']" position="before">
+                <field name="company_id" string="Company ID" />
                 <field name="logo" widget="image" class="oe_avatar" options="{'preview_image': 'logo'}" string="Logo"/>
             </xpath>
             <xpath expr="//list//field[@name='name']" position="attributes">
                 <attribute name="string">Name</attribute>
             </xpath>
             <xpath expr="//list//field[@name='name']" position="after">
-                <field name="check_in" string="Check In"/>
-                <field name="check_out" string="Check Out"/>
+                <field name="check_in" string="Check In" />
+                <field name="check_out" string="Check Out" />
                 <field name="payment_mode" />
-                <field name="property_id" string="Property"/>
-                <field name="booking_id" string="Booking ID"/>
-                <field name="rate" string="Rate"/>
-                <field name="customer_paid" string="Customer Paid" readonly="1"/>
-                <field name="balance" string="Balance" readonly="1"/>
-                <field name="payment_status" string="Payment Status" decoration-success="payment_status == 'paid'" decoration-danger="payment_status == 'unpaid'" decoration-info="payment_status == 'partial'" widget="badge"/>
+                <field name="property_id" string="Property" />
+                <field name="booking_id" string="Booking ID" />
+                <field name="rate" string="Rate" />
+                <field name="customer_paid" string="Customer Paid" readonly="1" />
+                <field name="balance" string="Balance" readonly="1" />
+                <field name="payment_status" string="Payment Status" decoration-success="payment_status == 'paid'" decoration-danger="payment_status == 'unpaid'" decoration-info="payment_status == 'partial'" widget="badge" />
             </xpath>
             <xpath expr="//list//field[@name='expected_revenue']" position="attributes">
                 <attribute name="column_invisible">1</attribute>
@@ -120,12 +121,13 @@
                 <attribute name="string">Name</attribute>
             </xpath>
             <xpath expr="//list//field[@name='name']" position="after">
-                <field name="check_in" string="Check In"/>
-                <field name="check_out" string="Check Out"/>
-                <field name="property_id" string="Property"/>
-                <field name="booking_id" string="Booking ID"/>
-                <field name="company_id" string="Rate"/>
-                <field name="payment_status" string="Payment Status" decoration-success="payment_status == 'paid'" decoration-danger="payment_status == 'unpaid'" decoration-info="payment_status == 'partial'" widget="badge"/>
+                <field name="company_id" string="Company ID"/>
+                <field name="check_in" string="Check In" />
+                <field name="check_out" string="Check Out" />
+                <field name="property_id" string="Property" />
+                <field name="booking_id" string="Booking ID" />
+                <field name="company_id" string="Rate" />
+                <field name="payment_status" string="Payment Status" decoration-success="payment_status == 'paid'" decoration-danger="payment_status == 'unpaid'" decoration-info="payment_status == 'partial'" widget="badge" />
             </xpath>
         </field>
     </record>
@@ -146,8 +148,8 @@
         <field name="inherit_id" ref="crm.view_crm_case_opportunities_filter"/>
         <field name="arch" type="xml">
             <xpath expr="//search//filter[@name='saleschannel']" position="after">
-                <filter name="check_in" date="check_in" string="Check-in" context="{'group_by': 'check_in'}" />
-                <filter name="check_out" date="check_out" string="Check-out" context="{'group_by': 'check_out'}" />
+                <filter name="check_in" date="check_in" string="Check-in" context="{'group_by': 'check_in'}"  />
+                <filter name="check_out" date="check_out" string="Check-out" context="{'group_by': 'check_out'}"  />
             </xpath>
         </field>
     </record>
@@ -157,13 +159,13 @@
         <field name="inherit_id" ref="product.product_template_only_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//form//sheet//field[@name='invoice_policy']" position="after">
-                <field name="property_location" string="Property Location"/>
-                <field name="city" string="City"/>
-                <field name="property_address" string="Property Address"/>
-                <field name="number_of_rooms" />
-                <field name="agoda_property_id" />
-                <field name="booking_dot_com_property_id" />
-                <field name="make_my_trip_property_id" />
+                <field name="property_location" string="Property Location" invisible="company_id != 1"/>
+                <field name="city" string="City" invisible="company_id != 1"/>
+                <field name="property_address" string="Property Address" invisible="company_id != 1"/>
+                <field name="number_of_rooms" invisible="company_id != 1"/>
+                <field name="agoda_property_id" invisible="company_id != 1"/>
+                <field name="booking_dot_com_property_id" invisible="company_id != 1"/>
+                <field name="make_my_trip_property_id" invisible="company_id != 1"/>
             </xpath>
         </field>
     </record>
@@ -173,7 +175,7 @@
         <field name="inherit_id" ref="product.product_template_only_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//div[@name='list_price_uom']" position="after">
-                <field name="mrp_price" />
+                <field name="mrp_price" invisible="company_id != 2"/>
             </xpath>
         </field>
     </record>

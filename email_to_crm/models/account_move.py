@@ -235,3 +235,30 @@ class AccountMove(models.Model):
             'res_model': 'account.move',
             'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         })
+
+class AccountMoveLine(models.Model):
+    _inherit = 'account.move.line'
+
+    lot_ids = fields.Many2many(
+        'stock.lot',
+        string='Lot/Serial Number',
+        help="The lot/serial number associated with this line.",
+        compute='_compute_lot_id',
+        store=True,
+    )
+
+    @api.depends('product_id', 'move_id')
+    def _compute_lot_id(self):
+        for line in self:
+            try:
+                if line.product_id:
+                    if line.sale_line_ids:
+                        lot = line.sale_line_ids.move_ids.lot_ids
+                        line.lot_ids = lot if lot else False
+                    else:
+                        line.lot_ids = False
+                else:
+                    line.lot_ids = False
+            except Exception as e:
+                _logger.error(f"Error computing lot_ids for account.move.line {line.id}: {e}")
+                line.lot_ids = False

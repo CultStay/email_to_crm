@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="report_invoice_document_inherit" inherit_id="account.report_invoice_document">
+        <xpath expr="//th[@name='th_description']" position="after">
+            <th class="text-center"><span>Lot/Serial Number</span></th>            
+        </xpath>
+        <xpath expr="//td[@name='account_invoice_line_name']" position="after">
+            <td name="lot_serial_number" class="text-end">
+                <span class="text-nowrap" t-foreach="line.lot_ids" t-as="lot">
+                    <span t-esc="lot.name"/>
+                    <t t-if="not lot == line.lot_ids[-1]">, </t>
+                </span>
+            </td>
+        </xpath>
         <xpath expr="//th[span[text()='Amount']]" position="before">
             <th class="text-end"><span>MRP</span></th>
         </xpath>

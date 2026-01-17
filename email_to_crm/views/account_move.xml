@@ -18,6 +18,9 @@
             <xpath expr="//form//sheet//div[@name='due_date']//field[@name='invoice_payment_term_id']" position="attributes">
                 <attribute name="domain">[('name', 'in', ['Immediate Payment', '15 Days', '21 Days', '30 Days'])]</attribute>
             </xpath>
+            <xpath expr="//field[@name='invoice_line_ids']//list//field[@name='product_id']" position="after">
+                <field name="lot_ids" widget="many2many_tags"/>
+            </xpath>
         </field>
     </record>
 </odoo>

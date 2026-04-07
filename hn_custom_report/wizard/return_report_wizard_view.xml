@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         Return Report Wizard — Form View
+    ══════════════════════════════════════════════════════════════════════ -->
+    <record id="view_return_report_wizard_form" model="ir.ui.view">
+        <field name="name">return.report.wizard.form</field>
+        <field name="model">return.report.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Return Report">
+                <sheet>
+                    <!-- Header -->
+                    <div class="oe_title">
+                        <h1>
+                            <span>🔄 Return Report</span>
+                        </h1>
+                        <p class="text-muted">
+                            Generate an Excel report showing ordered, sold, paid and returned
+                            quantities per product per shop for any date range.
+                        </p>
+                    </div>
+
+                    <!-- Date Range -->
+                    <group string="📅 Report Date Range">
+                        <group>
+                            <field name="date_from" required="1"/>
+                        </group>
+                        <group>
+                            <field name="date_to" required="1"/>
+                        </group>
+                        <group colspan="2">
+                            <field name="period_label" readonly="1" string="Selected Period"/>
+                        </group>
+                    </group>
+
+                    <!-- Filters -->
+                    <group string="🔍 Filters (all optional)">
+                        <group>
+                            <field name="company_ids" widget="many2many_tags" options="{'no_create': True, 'no_create_edit': True, 'no_quick_create': True}"/>
+                            <field name="partner_ids" options="{'no_create': True, 'no_create_edit': True, 'no_quick_create': True}"
+                                   widget="many2many_tags"
+                                   string="Shops / Customers"
+                                   placeholder="Leave empty for all shops"/>
+                        </group>
+                        <group>
+                            <field name="product_ids" options="{'no_create': True, 'no_create_edit': True, 'no_quick_create': True}"
+                                   widget="many2many_tags"
+                                   string="Products"
+                                   placeholder="Leave empty for all products"/>
+                        </group>
+                    </group>
+
+                    <!-- Info box -->
+                    <div class="alert alert-info" role="alert" style="margin-top:12px;">
+                        <strong>📊 Report Contents:</strong>
+                        <ul style="margin-bottom:0;">
+                            <li>
+                                <strong>Sheet 1 – Return Report:</strong>
+                                One row per invoice. Columns: Invoice Date, Shop Name, Invoice No.,
+                                Total Paid — then per product:
+                                <span class="badge" style="background:#C6EFCE;color:#000;">Ordered Qty</span>
+                                <span class="badge" style="background:#C6EFCE;color:#000;">Sale Qty</span>
+                                <span class="badge" style="background:#FFC7CE;color:#000;">Return Qty</span>
+                                — and a grand <strong>Total Return Qty</strong> column.
+                            </li>
+                            <li>
+                                <strong>Sheet 2 – Product Summary:</strong>
+                                Aggregated totals per product — ordered, sale, return quantities
+                                and amounts with return %.
+                            </li>
+                        </ul>
+                    </div>
+                </sheet>
+
+                <footer>
+                    <button name="action_generate_report"
+                            string="📥 Generate Excel Report"
+                            type="object"
+                            class="btn-primary"
+                            data-hotkey="g"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         Action
+    ══════════════════════════════════════════════════════════════════════ -->
+    <record id="action_return_report_wizard" model="ir.actions.act_window">
+        <field name="name">Return Report</field>
+        <field name="res_model">return.report.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_return_report_wizard_form"/>
+        <field name="target">new</field>
+    </record>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         Menu Item (under same Collection Reports parent)
+    ══════════════════════════════════════════════════════════════════════ -->
+    <menuitem id="menu_return_report_wizard"
+              name="Return Report"
+              parent="menu_collection_report_root"
+              action="action_return_report_wizard"
+              sequence="20"/>
+
+</odoo>

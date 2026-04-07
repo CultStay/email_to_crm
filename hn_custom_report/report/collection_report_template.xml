@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+<template id="collection_report_template">
+    <t t-call="web.html_container">
+        <t t-foreach="report_data" t-as="rpt">
+            <t t-call="web.external_layout">
+                <div class="page">
+
+                    <!-- ══ REPORT HEADER ══════════════════════════ -->
+                    <div class="row">
+                        <div class="col-12 text-center mb-4">
+                            <h2 style="font-weight:700; color:#1a5276;">
+                                COLLECTION REPORT
+                            </h2>
+                            <h4 style="color:#2e86c1;">
+                                Invoices Aged ≥ <t t-esc="rpt['wizard'].report_type"/> Days
+                            </h4>
+                            <p class="text-muted">
+                                Invoice Date Range:
+                                <strong>
+                                    <t t-esc="rpt['wizard'].date_from"/>
+                                </strong>
+                                to
+                                <strong>
+                                    <t t-esc="rpt['wizard'].date_to"/>
+                                </strong>
+                                &amp;nbsp;|&amp;nbsp;
+                                Company:
+                                <strong>
+                                    <t t-esc="rpt['wizard'].company_id.name"/>
+                                </strong>
+                            </p>
+                            <p>
+                                Total Invoices Found:
+                                <strong>
+                                    <t t-esc="rpt['total_invoices']"/>
+                                </strong>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- ══ PER-CITY SECTIONS ══════════════════════ -->
+                    <t t-foreach="rpt['city_summaries']" t-as="city_grp">
+                        <div style="margin-bottom:24px;">
+
+                            <!-- City sub-header -->
+                            <div style="background:#1a5276; color:#fff; padding:6px 12px;
+                                        border-radius:4px; margin-bottom:4px;">
+                                <strong>
+                                    <i class="fa fa-map-marker"/> 
+                                    <t t-esc="city_grp['city']"/>
+                                </strong>
+                                &amp;nbsp;—&amp;nbsp;
+                                <t t-esc="city_grp['count']"/> invoice(s)
+                            </div>
+
+                            <!-- Invoice table -->
+                            <table class="table table-sm table-bordered"
+                                   style="font-size:11px; width:100%;">
+                                <thead style="background:#d6eaf8;">
+                                    <tr>
+                                        <th style="width:10%;">Invoice Date</th>
+                                        <th style="width:8%;">Age (Days)</th>
+                                        <th style="width:18%;">Invoice No.</th>
+                                        <th style="width:25%;">Customer</th>
+                                        <th style="width:14%;">City</th>
+                                        <th style="width:12%; text-align:right;">Invoice Amt</th>
+                                        <th style="width:13%; text-align:right;">Outstanding Amt</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="city_grp['lines']" t-as="line">
+                                        <tr>
+                                            <td>
+                                                <t t-esc="line['invoice_date']"
+                                                   t-options="{'widget':'date'}"/>
+                                            </td>
+                                            <td style="text-align:center;">
+                                                <t t-esc="line['age_days']"/>
+                                            </td>
+                                            <td>
+                                                <t t-esc="line['name']"/>
+                                            </td>
+                                            <td>
+                                                <t t-esc="line['partner']"/>
+                                            </td>
+                                            <td>
+                                                <t t-esc="line['city']"/>
+                                            </td>
+                                            <td style="text-align:right;">
+                                                <t t-esc="line['amount_total']"
+                                                   t-options="{'widget':'monetary',
+                                                               'display_currency': line['currency']}"/>
+                                            </td>
+                                            <td style="text-align:right;">
+                                                <t t-esc="line['amount_residual']"
+                                                   t-options="{'widget':'monetary',
+                                                               'display_currency': line['currency']}"/>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <!-- City sub-total -->
+                                <tfoot style="background:#eaf2ff; font-weight:bold;">
+                                    <tr>
+                                        <td colspan="5" style="text-align:right;">
+                                            City Sub-Total
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <t t-esc="city_grp['total']"
+                                               t-options="{'widget':'monetary',
+                                                           'display_currency':
+                                                           rpt['wizard'].company_id.currency_id}"/>
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <t t-esc="city_grp['residual']"
+                                               t-options="{'widget':'monetary',
+                                                           'display_currency':
+                                                           rpt['wizard'].company_id.currency_id}"/>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </t>
+
+                    <!-- ══ GRAND TOTAL ════════════════════════════ -->
+                    <div style="border-top: 2px solid #1a5276; padding-top:8px; margin-top:16px;">
+                        <table class="table table-sm" style="width:100%; font-size:12px;">
+                            <tr style="background:#1a5276; color:#fff; font-weight:bold;">
+                                <td style="width:70%; text-align:right; padding:6px 12px;">
+                                    GRAND TOTAL
+                                </td>
+                                <td style="width:15%; text-align:right; padding:6px;">
+                                    <t t-esc="rpt['grand_total']"
+                                       t-options="{'widget':'monetary',
+                                                   'display_currency':
+                                                   rpt['wizard'].company_id.currency_id}"/>
+                                </td>
+                                <td style="width:15%; text-align:right; padding:6px;">
+                                    <t t-esc="rpt['grand_residual']"
+                                       t-options="{'widget':'monetary',
+                                                   'display_currency':
+                                                   rpt['wizard'].company_id.currency_id}"/>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- ══ FOOTER NOTE ════════════════════════════ -->
+                    <p class="text-muted" style="font-size:10px; margin-top:16px;">
+                        * Report generated on 
+                        <t t-esc="context_timestamp(datetime.datetime.now())"
+                           t-options="{'widget':'datetime'}"/>.
+                        Only <strong>Posted</strong> invoices with invoice date ≥ 
+                        <t t-esc="rpt['wizard'].report_type"/> days old are included.
+                    </p>
+
+                </div>
+            </t>
+        </t>
+    </t>
+</template>
+
+</odoo>

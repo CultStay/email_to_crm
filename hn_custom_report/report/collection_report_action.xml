@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ═══════════════════════════════════════
+         PDF REPORT ACTION
+    ════════════════════════════════════════ -->
+    <record id="action_collection_report_pdf" model="ir.actions.report">
+        <field name="name">Collection Report</field>
+        <field name="model">collection.report.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">
+            collection_report.collection_report_template
+        </field>
+        <field name="report_file">
+            collection_report.collection_report_template
+        </field>
+        <field name="print_report_name">
+            'Collection_Report_%s_Days_%s' % (object.report_type, object.date_to)
+        </field>
+        <field name="binding_model_id" ref="base.model_res_partner"/>
+        <field name="paperformat_id" ref="base.paperformat_us"/>
+    </record>
+
+    <!-- ═══════════════════════════════════════
+         XLSX REPORT ACTION  (uses same QWeb parser but xlsx type)
+         Requires 'report_xlsx' module in addons path.
+    ════════════════════════════════════════ -->
+    <!--
+    <record id="action_collection_report_xlsx" model="ir.actions.report">
+        <field name="name">Collection Report (Excel)</field>
+        <field name="model">collection.report.wizard</field>
+        <field name="report_type">xlsx</field>
+        <field name="report_name">
+            collection_report.collection_report_xlsx
+        </field>
+        <field name="print_report_name">
+            'Collection_Report_%s_Days_%s' % (object.report_type, object.date_to)
+        </field>
+    </record>
+    -->
+
+</odoo>

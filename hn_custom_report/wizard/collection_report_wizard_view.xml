@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         Wizard Form View
+    ══════════════════════════════════════════════════════════════════════ -->
+    <record id="view_collection_report_wizard_form" model="ir.ui.view">
+        <field name="name">collection.report.wizard.form</field>
+        <field name="model">collection.report.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Collection Report">
+                <sheet>
+                    <!-- Header Banner -->
+                    <div class="oe_title">
+                        <h1>
+                            <span>📋 Collection Report</span>
+                        </h1>
+                        <p class="text-muted">
+                            Generate an Excel report of outstanding sales invoices aged 14, 21 or 28 days.
+                        </p>
+                    </div>
+
+                    <group string="⏱ Report Period">
+                        <group>
+                            <field name="date_filter"
+                                   widget="radio"
+                                   options="{'horizontal': true}"
+                                   required="1"/>
+                        </group>
+                        <group>
+                            <field name="period_label" readonly="1" string="Selected Period"/>
+                        </group>
+                    </group>
+
+                    <!-- Custom date range (shown only when 'custom' is selected) -->
+                    <group string="📅 Custom Date Range" invisible="date_filter != 'custom'">
+                        <group>
+                            <field name="date_from" required="[('date_filter','=','custom')]"/>
+                        </group>
+                        <group>
+                            <field name="date_to" required="[('date_filter','=','custom')]"/>
+                        </group>
+                    </group>
+
+<!--                    <group string="🔍 Filters">-->
+<!--                        <group>-->
+<!--                            <field name="company_ids" widget="many2many_tags"/>-->
+<!--                            <field name="include_draft"/>-->
+<!--                        </group>-->
+<!--                        <group>-->
+<!--                            <field name="city_ids"-->
+<!--                                   widget="many2many_tags"-->
+<!--                                   string="Filter by City (optional)"/>-->
+<!--                        </group>-->
+<!--                    </group>-->
+
+                    <!-- Info box -->
+                    <div class="alert alert-info" role="alert" style="margin-top:12px;">
+                        <strong>ℹ️ Note:</strong> The report fetches all posted sales invoices whose
+                        invoice date falls within the selected period. Results are grouped by
+                        <strong>City</strong> and split into aging buckets:
+                        <span class="badge badge-success">14 Days</span>
+                        <span class="badge badge-warning">21 Days</span>
+                        <span class="badge badge-danger">28+ Days</span>.
+                        The Excel file contains three sheets: Summary, Invoice Details, and Aging Analysis.
+                    </div>
+                </sheet>
+
+                <footer>
+                    <button name="action_generate_report"
+                            string="📥 Generate Excel Report"
+                            type="object"
+                            class="btn-primary"
+                            data-hotkey="g"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         Menu Action
+    ══════════════════════════════════════════════════════════════════════ -->
+    <record id="action_collection_report_wizard" model="ir.actions.act_window">
+        <field name="name">Collection Report</field>
+        <field name="res_model">collection.report.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_collection_report_wizard_form"/>
+        <field name="target">new</field>
+    </record>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         Menu Items
+    ══════════════════════════════════════════════════════════════════════ -->
+    <menuitem id="menu_collection_report_root"
+              name="Custom"
+              parent="sale.menu_sale_report"
+              sequence="99"/>
+
+    <menuitem id="menu_collection_report_wizard"
+              name="Collection Report"
+              parent="menu_collection_report_root"
+              action="action_collection_report_wizard"
+              sequence="10"/>
+
+</odoo>

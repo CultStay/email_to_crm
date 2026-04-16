@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Quotation Tree View -->
+    <record id="view_quotation_list_inherit_city" model="ir.ui.view">
+        <field name="name">sale.order.list.city</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_quotation_tree"/>
+        <field name="arch" type="xml">
+            <field name="partner_id" position="after">
+                <field name="city"/>
+            </field>
+        </field>
+    </record>
+
+    <!-- Sales Order Tree View -->
+    <record id="view_order_tree_inherit_city" model="ir.ui.view">
+        <field name="name">sale.order.tree.city.inherit</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_tree"/>
+        <field name="arch" type="xml">
+            <field name="partner_id" position="after">
+                <field name="city"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_sale_order_filter_city" model="ir.ui.view">
+        <field name="name">sale.order.search.city</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_sales_order_filter"/>
+        <field name="arch" type="xml">
+            <!-- Filter -->
+            <xpath expr="//search" position="inside">
+                <field name="city" string="City"/>
+            </xpath>
+
+            <!-- Group By -->
+            <xpath expr="//group" position="inside">
+                <filter name="group_by_city"
+                        string="City"
+                        context="{'group_by':'city'}"/>
+            </xpath>
+
+        </field>
+    </record>
+
+
+</odoo>

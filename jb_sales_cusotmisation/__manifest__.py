@@ -8,7 +8,8 @@
     'description': """City Filter on Orders""",
     'depends': ['sale'],
     'data': [
-        'views/sale_view.xml'
+        'views/sale_view.xml',
+        'views/menu.xml',
     ],
     'application': False,
     'auto_install': False,

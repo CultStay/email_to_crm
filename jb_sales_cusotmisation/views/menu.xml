@@ -1,0 +1,14 @@
+<odoo>
+
+    <menuitem id="menu_backdate_orders_root"
+              name="Backdates Orders"
+              parent="sale.sale_menu_root"
+              sequence="25"/>
+
+    <menuitem id="menu_backdate_orders"
+              name="Backdates Orders"
+              parent="menu_backdate_orders_root"
+              action="action_backdate_orders"
+              sequence="1"/>
+
+</odoo>

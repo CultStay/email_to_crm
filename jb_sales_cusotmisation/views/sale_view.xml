@@ -44,22 +44,4 @@
         </field>
     </record>
 
-    <!-- views/backdate_order_menu.xml -->
-
-    <record id="action_backdate_orders" model="ir.actions.act_window">
-        <field name="name">Backdates Orders</field>
-        <field name="res_model">sale.order</field>
-        <field name="view_mode">list,form</field>
-
-        <!-- IMPORTANT DOMAIN -->
-        <field name="domain">
-            [
-                ('state', '=', 'sale'),
-                ('invoice_status', '=', 'to invoice')
-            ]
-        </field>
-
-        <field name="context">{}</field>
-    </record>
-
 </odoo>

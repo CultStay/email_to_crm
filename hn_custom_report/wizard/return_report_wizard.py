@@ -218,9 +218,7 @@ class ReturnReportWizard(models.TransientModel):
         return_pickings = self.env['stock.picking'].search([
             ('origin', 'in', sale_orders.mapped('name')),
             ('picking_type_id.code', '=', 'incoming'),  # Return type
-            ('state', '=', 'done'),
-            ('date_done', '>=', self.date_from),
-            ('date_done', '<=', self.date_to),
+            ('state', '=', 'done')
         ])
 
         # Also search by sale_order_id directly if available
@@ -228,9 +226,7 @@ class ReturnReportWizard(models.TransientModel):
             return_pickings |= self.env['stock.picking'].search([
                 ('sale_id', 'in', sale_orders.ids),
                 ('picking_type_id.code', '=', 'incoming'),
-                ('state', '=', 'done'),
-                ('date_done', '>=', self.date_from),
-                ('date_done', '<=', self.date_to),
+                ('state', '=', 'done')
             ])
 
         # Map return moves to original delivery moves

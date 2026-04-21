@@ -22,6 +22,7 @@
 
                     <group string="⏱ Report Period">
                         <group>
+                            <field name="city"/>
                             <field name="date_filter"
                                    widget="radio"
                                    options="{'horizontal': true}"

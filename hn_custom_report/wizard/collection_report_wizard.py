@@ -36,6 +36,8 @@ class CollectionReportWizard(models.TransientModel):
         default=fields.Date.today
     )
 
+    city = fields.Char('City')
+
     # ── Filters ──────────────────────────────────────────────────────────────
     # city_ids = fields.Many2many(
     #     'res.city', string='Cities',
@@ -107,6 +109,10 @@ class CollectionReportWizard(models.TransientModel):
         #     domain.append(('state', '=', 'posted'))
         if self.company_ids:
             domain.append(('company_id', 'in', self.company_ids.ids))
+
+        # Apply city filter
+        if self.city:
+            domain.append(('partner_id.city', 'ilike', self.city.strip()))
 
         invoices = self.env['account.move'].search(domain, order='invoice_date asc')
 

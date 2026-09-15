@@ -93,18 +93,6 @@ class CrmLead(models.Model):
         help="The logo of the booking Partner.",
     )
 
-    # today_start = fields.Datetime(
-    #     string='Today',
-    #     compute='_compute_today',
-    #     store=False
-    # )
-
-    # today_end = fields.Datetime(
-    #     string='Today', 
-    #     compute='_compute_today', 
-    #     store=False
-    # )
-
     check_in = fields.Datetime(
         string='Check In',
         help="The check-in date and time of the customer.",
@@ -237,21 +225,6 @@ class CrmLead(models.Model):
             total_paid = sum(invoice.amount_total for invoice in lead.invoice_ids if invoice.move_type == 'out_invoice' and invoice.payment_state in ['paid', 'in_payment'])
             lead.customer_paid = total_paid
 
-    # @api.onchange('rate', 'payment_status')
-    # def _onchange_rate_payment_status(self):
-    #     """Update the customer_paid based on the payment_status."""
-    #     if self.rate or self.payment_status:
-    #         if self.payment_status == 'paid':
-    #             self.customer_paid = self.rate
-    #             self.invioce_fully_paid = True
-    #         elif self.payment_status == 'unpaid':
-    #             self.customer_paid = 0.0
-    #             self.invioce_fully_paid = False
-    #         elif self.payment_status == 'partial' and self.customer_paid > self.rate:
-    #             self.customer_paid = self.rate
-    #             self.invioce_fully_paid = False
-
-
     @api.depends('invoice_ids')
     def _compute_invoice_count(self):
         """Compute the number of invoices associated with this lead."""
@@ -360,8 +333,6 @@ class CrmLead(models.Model):
                     total_payment_today += inv.amount_total
                 elif frequency == 'Weekly' and inv.invoice_date and inv.invoice_date >= today - timedelta(days=7):
                     total_payment_today += inv.amount_total
-
-
 
             total_daily_payment_sum += total_payment_today
             total_balance_sum += lead.balance or 0
@@ -656,7 +627,8 @@ class MailThread(models.AbstractModel):
                 else:
                     fetch_list = []
         match = re.search(r'<([^>]+)>', msg_dict.get('email_from'))
-        email_from = match.group(1)
+        email_from = match.group(1) if match else (msg_dict.get('email_from') or '')
+        email_from = email_from.lower().strip()
         if fetch_list and email_from not in fetch_list:
             _logger.info('Ignored mail from %s to %s with Message-Id %s: email not in the catch list',
                          msg_dict.get('email_from'), msg_dict.get('to'), msg_dict.get('message_id'))
@@ -683,44 +655,53 @@ class MailThread(models.AbstractModel):
             def extract_field(pattern, text, default=None):
                     match = re.search(pattern, text)
                     return match.group(1).strip() if match else default
+
+            matched_provider = False
+
+            # ---------------------------------------------------------------
+            # AGODA
+            # ---------------------------------------------------------------
             if email_from.endswith('agoda.com') or email_from == 'd365labs@gmail.com' or email_from == 'sudarsanan1996@gmail.com':
-
+                matched_provider = True
                 try:
-                    idx = lines.index("Room Type")
-                    room_type = lines[idx + 4] if len(lines) > idx + 4 else None
-                    no_of_rooms = lines[idx + 5] if len(lines) > idx + 5 else None
-                    occupancy = lines[idx + 6] if len(lines) > idx + 6 else None
-                    extra_bed = lines[idx + 7] if len(lines) > idx + 7 else None
-                except Exception as e:
-                    room_type = no_of_rooms = occupancy = extra_bed = None
-                
+                    try:
+                        idx = lines.index("Room Type")
+                        room_type = lines[idx + 4] if len(lines) > idx + 4 else None
+                        no_of_rooms = lines[idx + 5] if len(lines) > idx + 5 else None
+                        occupancy = lines[idx + 6] if len(lines) > idx + 6 else None
+                        extra_bed = lines[idx + 7] if len(lines) > idx + 7 else None
+                    except Exception as e:
+                        room_type = no_of_rooms = occupancy = extra_bed = None
 
-                data = {
-                    "Booking ID": extract_field(r"Booking ID\s+(\d+)", cleaned_text),
-                    "Property Name": extract_field(r"Booking confirmation\s+(.+?)\(", cleaned_text),
-                    "Property ID": extract_field(r"Property ID\s*[\(:]?\s*(\d+)", cleaned_text),
-                    "City": extract_field(r"City\s*:\s*(.+)", cleaned_text),
-                    "Customer First Name": extract_field(r"Customer First Name\s+(.+)", cleaned_text),
-                    "Customer Last Name": extract_field(r"Customer Last Name\s+(.+)", cleaned_text),
-                    "Country of Residence": extract_field(r"Country of Residence\s+(.+)", cleaned_text),
-                    "Check-in": extract_field(r"Check-in\s+(.+)", cleaned_text),
-                    "Check-out": extract_field(r"Check-out\s+(.+)", cleaned_text),
-                    "Other Guests": extract_field(r"Other Guests\s+(.+)", cleaned_text),
-                    "Room Type": room_type,
-                    "No. of Rooms": no_of_rooms,
-                    "Occupancy": occupancy,
-                    "Rate From-To": extract_field(r"From - To\s+Rates\s+([^\n]+)", cleaned_text),
-                    "Amount": extract_field(r'INR\s*([\d,.]+)\s*\nReference sell rate', cleaned_text),
-                    "Commission": extract_field(r'Commission\s*INR\s*(-?[\d,.]+)', cleaned_text),
-                    "TDS": extract_field(r'TDS - Withholding tax\s*INR\s*(-?[\d,.]+)', cleaned_text),
-                    "Rate Channel": extract_field(r"Rate Channel\s+(.+)", cleaned_text),
-                    "Net Rate": extract_field(r"Net rate.*?INR\s*([\d,.]+)", cleaned_text),
-                    "Customer Email": extract_field(r"Email:\s+(.+)", cleaned_text),
-                    'payment_by': extract_field(r'Booked and Payable by\s*(.*?)\n', cleaned_text),
-                }
-                if data.get('Booking ID'):
-                    if len(self.env['crm.lead'].search([('booking_id', '=', data.get('Booking ID'))])) == 0:
-
+                    data = {
+                        "Booking ID": extract_field(r"Booking ID\s+(\d+)", cleaned_text),
+                        "Property Name": extract_field(r"Booking confirmation\s+(.+?)\(", cleaned_text),
+                        "Property ID": extract_field(r"Property ID\s*[\(:]?\s*(\d+)", cleaned_text),
+                        "City": extract_field(r"City\s*:\s*(.+)", cleaned_text),
+                        "Customer First Name": extract_field(r"Customer First Name\s+(.+)", cleaned_text),
+                        "Customer Last Name": extract_field(r"Customer Last Name\s+(.+)", cleaned_text),
+                        "Country of Residence": extract_field(r"Country of Residence\s+(.+)", cleaned_text),
+                        "Check-in": extract_field(r"Check-in\s+(.+)", cleaned_text),
+                        "Check-out": extract_field(r"Check-out\s+(.+)", cleaned_text),
+                        "Other Guests": extract_field(r"Other Guests\s+(.+)", cleaned_text),
+                        "Room Type": room_type,
+                        "No. of Rooms": no_of_rooms,
+                        "Occupancy": occupancy,
+                        "Rate From-To": extract_field(r"From - To\s+Rates\s+([^\n]+)", cleaned_text),
+                        "Amount": extract_field(r'INR\s*([\d,.]+)\s*\nReference sell rate', cleaned_text),
+                        "Commission": extract_field(r'Commission\s*INR\s*(-?[\d,.]+)', cleaned_text),
+                        "TDS": extract_field(r'TDS - Withholding tax\s*INR\s*(-?[\d,.]+)', cleaned_text),
+                        "Rate Channel": extract_field(r"Rate Channel\s+(.+)", cleaned_text),
+                        "Net Rate": extract_field(r"Net rate.*?INR\s*([\d,.]+)", cleaned_text),
+                        "Customer Email": extract_field(r"Email:\s+(.+)", cleaned_text),
+                        'payment_by': extract_field(r'Booked and Payable by\s*(.*?)\n', cleaned_text),
+                    }
+                    if not data.get('Booking ID'):
+                        _logger.warning(
+                            'Agoda email from %s (Message-Id %s) did not match the expected template: '
+                            'could not extract a Booking ID. No lead was created.',
+                            email_from, msg_dict.get('message_id'))
+                    elif len(self.env['crm.lead'].search([('booking_id', '=', data.get('Booking ID'))])) == 0:
                         partner = self.env['res.partner'].create({
                             'name': f"{data.get('Customer First Name', '')} {data.get('Customer Last Name', '')}",
                             'email': data.get('Customer Email', ''),
@@ -731,7 +712,7 @@ class MailThread(models.AbstractModel):
                         out_date_obj = datetime.strptime(data.get('Check-out', ''), "%B %d, %Y")
                         out_date_obj = user_tz.localize(out_date_obj.replace(hour=10, minute=0, second=0, microsecond=0)).astimezone(pytz.UTC).replace(tzinfo=None)
                         amount = float(data.get('Amount', '').replace(",", "").strip()) if data.get('Amount') else 0
-                        net_rate = float(data.get('Net Rate', 0).replace(",", "").strip()) if data.get('Net Rate') else 0
+                        net_rate = float(data.get('Net Rate', '').replace(",", "").strip()) if data.get('Net Rate') else 0
                         lead = CRMLead.create({
                             'logo_src': 'email_to_crm/static/src/img/agoda.png' if not logo_src else logo_src,
                             'type': 'opportunity',
@@ -782,169 +763,201 @@ class MailThread(models.AbstractModel):
                             invoice.payment_state = 'paid'
                             lead.invioce_fully_paid = True
                             _logger.info('Created Invoice ID : %s', invoice.id)
-                        return
+                    return
+                except Exception:
+                    _logger.exception(
+                        'Failed to process Agoda booking email from %s (Message-Id %s). '
+                        'No CRM lead was created for this message.',
+                        email_from, msg_dict.get('message_id'))
+                    return
+
+            # ---------------------------------------------------------------
+            # AIRBNB
+            # ---------------------------------------------------------------
             if email_from.endswith('airbnb.com') or email_from == 'd365labs@gmail.com' or email_from == 'sudarsanan1996@gmail.com':
-                if 'reservation confirmed' in msg_dict.get('subject', '').lower():
-                    data = {}
-                    name_match = re.search(r"New booking confirmed!\s*(.*?)\s*arrives", cleaned_text)
-                    if name_match:
-                        data['guest_name'] = name_match.group(1).strip() 
-                    # Check-in date
-                    checkin_match = re.search(r"Check-in\s*([A-Za-z]+,\s*[A-Za-z]+\s*\d+)", text)
-                    if checkin_match:
-                        checkin_match = parse(checkin_match.group(1).strip())
-                        checkin_match = checkin_match.replace(year=datetime.today().year)
-                        data['checkin_date'] = checkin_match
+                matched_provider = True
+                try:
+                    if 'reservation confirmed' in msg_dict.get('subject', '').lower():
+                        data = {}
+                        name_match = re.search(r"New booking confirmed!\s*(.*?)\s*arrives", cleaned_text)
+                        if name_match:
+                            data['guest_name'] = name_match.group(1).strip() 
+                        # Check-in date
+                        checkin_match = re.search(r"Check-in\s*([A-Za-z]+,\s*[A-Za-z]+\s*\d+)", text)
+                        if checkin_match:
+                            checkin_match = parse(checkin_match.group(1).strip())
+                            checkin_match = checkin_match.replace(year=datetime.today().year)
+                            data['checkin_date'] = checkin_match
 
-                    # Check-in time
-                    checkin_time = re.search(r"Check-in.*?(\d{1,2}:\d{2}\s*[APM]{2})", text)
-                    if checkin_time:
-                        data['checkin_time'] = checkin_time.group(1)
+                        # Check-in time
+                        checkin_time = re.search(r"Check-in.*?(\d{1,2}:\d{2}\s*[APM]{2})", text)
+                        if checkin_time:
+                            data['checkin_time'] = checkin_time.group(1)
 
-                    # Checkout date
-                    checkout_match = re.search(r"Checkout\s*([A-Za-z]+,\s*[A-Za-z]+\s*\d+)", text)
-                    if checkout_match:
-                        checkout_match = parse(checkout_match.group(1).strip())
-                        checkout_match = checkout_match.replace(year=datetime.today().year)
-                        data['checkout_date'] = checkout_match
+                        # Checkout date
+                        checkout_match = re.search(r"Checkout\s*([A-Za-z]+,\s*[A-Za-z]+\s*\d+)", text)
+                        if checkout_match:
+                            checkout_match = parse(checkout_match.group(1).strip())
+                            checkout_match = checkout_match.replace(year=datetime.today().year)
+                            data['checkout_date'] = checkout_match
 
-                    # Checkout time
-                    checkout_time = re.search(r"Checkout.*?(\d{1,2}:\d{2}\s*[APM]{2})", text)
-                    if checkout_time:
-                        data['checkout_time'] = checkout_time.group(1)
-                        t = parse(checkout_time.group(1)).time()
-                        data['checkout_date'] = data['checkout_date'].replace(
-                            hour=t.hour, minute=t.minute, second=0, microsecond=0
-                        )
-                    else:
-                        # Default Airbnb checkout
-                        data['checkout_date'] = data['checkout_date'].replace(
-                            hour=10, minute=0, second=0
-                        )
+                        # Checkout time
+                        checkout_time = re.search(r"Checkout.*?(\d{1,2}:\d{2}\s*[APM]{2})", text)
+                        if checkout_time:
+                            data['checkout_time'] = checkout_time.group(1)
+                            t = parse(checkout_time.group(1)).time()
+                            data['checkout_date'] = data['checkout_date'].replace(
+                                hour=t.hour, minute=t.minute, second=0, microsecond=0
+                            )
+                        else:
+                            # Default Airbnb checkout
+                            data['checkout_date'] = data['checkout_date'].replace(
+                                hour=10, minute=0, second=0
+                            )
 
-                    if data.get('checkin_time'):
-                        t = parse(data['checkin_time']).time()
-                        data['checkin_date'] = data['checkin_date'].replace(
-                            hour=t.hour, minute=t.minute, second=0, microsecond=0
-                        )
-                    else:
-                        # Default Airbnb checkin
-                        data['checkin_date'] = data['checkin_date'].replace(
-                            hour=12, minute=0, second=0
-                        )
-                    
+                        if data.get('checkin_time'):
+                            t = parse(data['checkin_time']).time()
+                            data['checkin_date'] = data['checkin_date'].replace(
+                                hour=t.hour, minute=t.minute, second=0, microsecond=0
+                            )
+                        else:
+                            # Default Airbnb checkin
+                            data['checkin_date'] = data['checkin_date'].replace(
+                                hour=12, minute=0, second=0
+                            )
 
-                    # ===========================================
-                    # Convert to UTC naive datetime for Odoo
-                    # ===========================================
-                    tz = pytz.timezone('Asia/Kolkata')
-                    data['check_in'] = tz.localize(data['checkin_date']).astimezone(pytz.UTC).replace(tzinfo=None)
-                    data['check_out'] = tz.localize(data['checkout_date']).astimezone(pytz.UTC).replace(tzinfo=None)
+                        # ===========================================
+                        # Convert to UTC naive datetime for Odoo
+                        # ===========================================
+                        tz = pytz.timezone('Asia/Kolkata')
+                        data['check_in'] = tz.localize(data['checkin_date']).astimezone(pytz.UTC).replace(tzinfo=None)
+                        data['check_out'] = tz.localize(data['checkout_date']).astimezone(pytz.UTC).replace(tzinfo=None)
 
-                    # Guests
-                    guests = re.search(r"Guests\s*([\d]+\s*adults?,\s*[\d]+\s*children?)", text)
-                    if guests:
-                        data['guest_count'] = guests.group(1)
+                        # Guests
+                        guests = re.search(r"Guests\s*([\d]+\s*adults?,\s*[\d]+\s*children?)", text)
+                        if guests:
+                            data['guest_count'] = guests.group(1)
 
-                    # Confirmation code
-                    confirmation = re.search(r"Confirmation code\s*([A-Z0-9]+)", text)
-                    if confirmation:
-                        data['confirmation_code'] = confirmation.group(1)
+                        # Confirmation code
+                        confirmation = re.search(r"Confirmation code\s*([A-Z0-9]+)", text)
+                        if confirmation:
+                            data['confirmation_code'] = confirmation.group(1)
 
-                    # Guest paid total
-                    guest_total = re.search(r"Total \(INR\)\s*₹([\d,]+\.\d+)", text)
-                    if guest_total:
-                        data['guest_total'] = float(guest_total.group(1).replace(',', ''))
+                        # Guest paid total
+                        guest_total = re.search(r"Total \(INR\)\s*₹([\d,]+\.\d+)", text)
+                        if guest_total:
+                            data['guest_total'] = float(guest_total.group(1).replace(',', ''))
 
-                    # Host earns
-                    host_earn = re.search(r"You earn\s*₹([\d,]+\.\d+)", text)
-                    if host_earn:
-                        data['host_earnings'] = host_earn.group(1)
+                        # Host earns
+                        host_earn = re.search(r"You earn\s*₹([\d,]+\.\d+)", text)
+                        if host_earn:
+                            data['host_earnings'] = host_earn.group(1)
 
-                    # Occupancy taxes
-                    tax_match = re.search(r"Occupancy taxes\s*₹([\d,]+\.\d+)", text)
-                    if tax_match:
-                        data['tax_amount'] = tax_match.group(1)
-                    property_match = re.search(r"([\w\s\d,.-]+?)\s*Entire home/apt", text)
-                    if property_match:
-                        data['property_name'] = property_match.group(1).strip()
-     
-                    if len(self.env['crm.lead'].search([('booking_id', '=', data.get('confirmation_code'))])) == 0:
-                        partner = self.env['res.partner'].create({
-                            'name': f"{data.get('guest_name', '')}",
-                            'email': data.get('email', ''),
-                        })
-                        lead = CRMLead.create({
-                            'logo_src': 'email_to_crm/static/src/img/Airbnb_Logo.png' if not logo_src else logo_src,
-                            'type': 'opportunity',
-                            'name': f"Airbnb Booking {data.get('confirmation_code', 'Unknown')} {data.get('guest_name', '')}",
-                            'email_from': data.get('email', ''),
-                            'check_in': data.get('check_in', ''),
-                            'check_out':data.get('check_out', ''),
-                            'rate': data.get('guest_total', 0),
-                            'customer_paid': data.get('guest_total', 0),
-                            'partner_name': 'Airbnb',
-                            'partner_id': partner.id,
-                            'booking_id': data.get('confirmation_code', ''),
-                            'net_rate': data.get('guest_total', 0),
-                            'payment_status': 'paid' if data.get('guest_total') else 'unpaid',
-                            'property_id': data.get('property_name', 0),
-                        })
-                        product = self.env['product.template'].search([('name', 'like', data.get('property_name'))], limit=1)
+                        # Occupancy taxes
+                        tax_match = re.search(r"Occupancy taxes\s*₹([\d,]+\.\d+)", text)
+                        if tax_match:
+                            data['tax_amount'] = tax_match.group(1)
+                        property_match = re.search(r"([\w\s\d,.-]+?)\s*Entire home/apt", text)
+                        if property_match:
+                            data['property_name'] = property_match.group(1).strip()
 
-                        if product:
-                            lead.property_product_id = product.id
-                            lead.city = product.city
-                        _logger.info('Created CRM Lead ID : %s', lead.id)
-                        if data.get('guest_total') > 0:
-                            product = self.env['product.product'].search([('name', 'like', data.get('property_name', ''))], limit=1)
-                            invoice = self.env['account.move'].create({
-                                'partner_id': partner.id,
-                                'move_type': 'out_invoice',
-                                'invoice_date': datetime.now().date(),
-                                'lead_id': lead.id,
-                                'invoice_line_ids': [(0, 0, {
-                                    'product_id': product.id if product else False,
-                                    'quantity': 1,
-                                    'price_unit': data.get('guest_total'),})],
+                        if not data.get('confirmation_code'):
+                            _logger.warning(
+                                'Airbnb email from %s (Message-Id %s) did not match the expected template: '
+                                'could not extract a confirmation code. No lead was created.',
+                                email_from, msg_dict.get('message_id'))
+                        elif len(self.env['crm.lead'].search([('booking_id', '=', data.get('confirmation_code'))])) == 0:
+                            partner = self.env['res.partner'].create({
+                                'name': f"{data.get('guest_name', '')}",
+                                'email': data.get('email', ''),
                             })
-                            invoice.action_post()
-                            payment = self.env['account.payment'].create({
-                                'payment_type': 'inbound',
-                                'partner_type': 'customer',
+                            lead = CRMLead.create({
+                                'logo_src': 'email_to_crm/static/src/img/Airbnb_Logo.png' if not logo_src else logo_src,
+                                'type': 'opportunity',
+                                'name': f"Airbnb Booking {data.get('confirmation_code', 'Unknown')} {data.get('guest_name', '')}",
+                                'email_from': data.get('email', ''),
+                                'check_in': data.get('check_in', ''),
+                                'check_out':data.get('check_out', ''),
+                                'rate': data.get('guest_total', 0),
+                                'customer_paid': data.get('guest_total', 0),
+                                'partner_name': 'Airbnb',
                                 'partner_id': partner.id,
-                                'amount': data.get('guest_total'),
-                                'journal_id': self.env['account.journal'].search([('type', '=', 'bank')], limit=1).id,
-                                'payment_method_id': self.env.ref('account.account_payment_method_manual_in').id,
+                                'booking_id': data.get('confirmation_code', ''),
+                                'net_rate': data.get('guest_total', 0),
+                                'payment_status': 'paid' if data.get('guest_total') else 'unpaid',
+                                'property_id': data.get('property_name', 0),
                             })
-                            payment.action_post()
-                            invoice.payment_state = 'paid'
-                            lead.invioce_fully_paid = True
-                            _logger.info('Created Invoice ID : %s', invoice.id)
-                        _logger.info('Processed Airbnb booking for : %s', data.get('guest_name'))
-                        return
-            if email_from.endswith('go-mmt.com')  or email_from == 'd365labs@gmail.com' or email_from == 'sudarsanan1996@gmail.com':
-                data = {
-                    "Booking ID": extract_field(r"Booking ID\s+([A-Z0-9]+)", cleaned_text),
-                    "Property Name": extract_field(r"Host Voucher \s+(.+?)", cleaned_text),
-                    "City": extract_field(r"Yelahanka, (.+?)\n", cleaned_text),
-                    "Customer First Name": extract_field(r"PRIMARY GUEST DETAILS\s+(.+?)\n", cleaned_text),
-                    "Customer Last Name": "",  # not separately available, you can split first/last manually if needed
-                    "Check-in": next((lines[i + 2] + " "+ lines[i + 3] for i, line in enumerate(lines) if line.strip().upper() == "CHECK-IN" and i + 1 < len(lines)), None),
-                    "Check-out": next((lines[i + 3] + " " + lines[i + 5] for i, line in enumerate(lines) if line.strip().upper() == "CHECK-OUT" and i + 1 < len(lines)), None),
-                    "No. of Rooms": extract_field(r"Room\(s\)\s+(\d+)", cleaned_text),
-                    "Room Type": extract_field(r"x (.+?)\n", cleaned_text),
-                    "Occupancy": extract_field(r"TOTAL NO\. OF GUEST\(S\)\s+(.+)", cleaned_text),
-                    "Amount": extract_field(r"Property Gross Charges\s+₹\s*([\d,.]+)", cleaned_text),
-                    "Commission": extract_field(r"Go-MMT Commission\s+₹\s*([\d,.]+)", cleaned_text),
-                    "TDS": extract_field(r"TDS @ [\d.]+%\s+₹\s*([\d,.]+)", cleaned_text),
-                    "Net Rate": extract_field(r"Payable to Property\s+₹\s*([\d,.]+)", cleaned_text),
-                    "Rate Channel": "MakeMyTrip",
-                    "Customer Email": "",  # Not available in text
-                    "payment_by": extract_field(r"Payment Status\s+(.+)", cleaned_text),
-                }
-                if data.get('Booking ID'):
-                    if len(self.env['crm.lead'].search([('booking_id', '=', data.get('Booking ID'))])) == 0:
+                            product = self.env['product.template'].search([('name', 'like', data.get('property_name'))], limit=1)
+
+                            if product:
+                                lead.property_product_id = product.id
+                                lead.city = product.city
+                            _logger.info('Created CRM Lead ID : %s', lead.id)
+                            if data.get('guest_total') > 0:
+                                product = self.env['product.product'].search([('name', 'like', data.get('property_name', ''))], limit=1)
+                                invoice = self.env['account.move'].create({
+                                    'partner_id': partner.id,
+                                    'move_type': 'out_invoice',
+                                    'invoice_date': datetime.now().date(),
+                                    'lead_id': lead.id,
+                                    'invoice_line_ids': [(0, 0, {
+                                        'product_id': product.id if product else False,
+                                        'quantity': 1,
+                                        'price_unit': data.get('guest_total'),})],
+                                })
+                                invoice.action_post()
+                                payment = self.env['account.payment'].create({
+                                    'payment_type': 'inbound',
+                                    'partner_type': 'customer',
+                                    'partner_id': partner.id,
+                                    'amount': data.get('guest_total'),
+                                    'journal_id': self.env['account.journal'].search([('type', '=', 'bank')], limit=1).id,
+                                    'payment_method_id': self.env.ref('account.account_payment_method_manual_in').id,
+                                })
+                                payment.action_post()
+                                invoice.payment_state = 'paid'
+                                lead.invioce_fully_paid = True
+                                _logger.info('Created Invoice ID : %s', invoice.id)
+                            _logger.info('Processed Airbnb booking for : %s', data.get('guest_name'))
+                    return
+                except Exception:
+                    _logger.exception(
+                        'Failed to process Airbnb booking email from %s (Message-Id %s). '
+                        'No CRM lead was created for this message.',
+                        email_from, msg_dict.get('message_id'))
+                    return
+
+            # ---------------------------------------------------------------
+            # MAKEMYTRIP / GO-MMT
+            # ---------------------------------------------------------------
+            if email_from.endswith('go-mmt.com') or email_from == 'd365labs@gmail.com' or email_from == 'sudarsanan1996@gmail.com':
+                matched_provider = True
+                try:
+                    data = {
+                        "Booking ID": extract_field(r"Booking ID\s+([A-Z0-9]+)", cleaned_text),
+                        "Property Name": extract_field(r"Host Voucher \s+(.+?)", cleaned_text),
+                        "City": extract_field(r"Yelahanka, (.+?)\n", cleaned_text),
+                        "Customer First Name": extract_field(r"PRIMARY GUEST DETAILS\s+(.+?)\n", cleaned_text),
+                        "Customer Last Name": "",  # not separately available, you can split first/last manually if needed
+                        "Check-in": next((lines[i + 2] + " "+ lines[i + 3] for i, line in enumerate(lines) if line.strip().upper() == "CHECK-IN" and i + 1 < len(lines)), None),
+                        "Check-out": next((lines[i + 3] + " " + lines[i + 5] for i, line in enumerate(lines) if line.strip().upper() == "CHECK-OUT" and i + 1 < len(lines)), None),
+                        "No. of Rooms": extract_field(r"Room\(s\)\s+(\d+)", cleaned_text),
+                        "Room Type": extract_field(r"x (.+?)\n", cleaned_text),
+                        "Occupancy": extract_field(r"TOTAL NO\. OF GUEST\(S\)\s+(.+)", cleaned_text),
+                        "Amount": extract_field(r"Property Gross Charges\s+₹\s*([\d,.]+)", cleaned_text),
+                        "Commission": extract_field(r"Go-MMT Commission\s+₹\s*([\d,.]+)", cleaned_text),
+                        "TDS": extract_field(r"TDS @ [\d.]+%\s+₹\s*([\d,.]+)", cleaned_text),
+                        "Net Rate": extract_field(r"Payable to Property\s+₹\s*([\d,.]+)", cleaned_text),
+                        "Rate Channel": "MakeMyTrip",
+                        "Customer Email": "",  # Not available in text
+                        "payment_by": extract_field(r"Payment Status\s+(.+)", cleaned_text),
+                    }
+                    if not data.get('Booking ID'):
+                        _logger.warning(
+                            'MakeMyTrip email from %s (Message-Id %s) did not match the expected template: '
+                            'could not extract a Booking ID. No lead was created.',
+                            email_from, msg_dict.get('message_id'))
+                    elif len(self.env['crm.lead'].search([('booking_id', '=', data.get('Booking ID'))])) == 0:
                         partner = self.env['res.partner'].create({
                             'name': f"{data.get('Customer First Name', '')} {data.get('Customer Last Name', '')}",
                             'email': data.get('Customer Email', ''),
@@ -955,7 +968,7 @@ class MailThread(models.AbstractModel):
                                 match = re.search(r"\d{2} \w{3} '\d{2}(?: \d{1,2}:\d{2} (AM|PM))?", date_str)
                                 if not match:
                                     raise ValueError("No valid date pattern found")
-                                
+
                                 clean_date = match.group(0)
 
                                 # Try parsing with datetime+time
@@ -966,7 +979,7 @@ class MailThread(models.AbstractModel):
                                     dt = datetime.strptime(clean_date, "%d %b '%y")
 
                                 return dt  # naive datetime (Odoo handles TZ)
-                            
+
                             except Exception as e:
                                 _logger.error(f"Failed to parse date string: {date_str} — {e}")
                                 return None
@@ -978,9 +991,12 @@ class MailThread(models.AbstractModel):
                             checkout = user_tz.localize(checkout.replace(hour=10, minute=0, second=0, microsecond=0)).astimezone(pytz.UTC).replace(tzinfo=None)
                         else:
                             checkin = checkout = None
-                        
+
                         amount = float(data.get('Amount', '').replace(",", "").strip()) if data.get('Amount') else 0
-                        net_rate = float(data.get('Net Rate', 0).replace(",", "").strip())
+                        # FIX: original code called .replace() on the raw default (0, an int) whenever
+                        # "Net Rate" extraction failed, which raised AttributeError and silently aborted
+                        # processing for every MMT email whose layout didn't match the regex exactly.
+                        net_rate = float(data.get('Net Rate', '').replace(",", "").strip()) if data.get('Net Rate') else 0
                         lead = CRMLead.create({
                             'logo_src': 'email_to_crm/static/src/img/mmt.png' if not logo_src else logo_src,
                             'type': 'opportunity',
@@ -1028,25 +1044,44 @@ class MailThread(models.AbstractModel):
                             invoice.payment_state = 'paid'
                             lead.invioce_fully_paid = True
                             _logger.info('Created Invoice ID : %s', invoice.id)
-                        return
-            if email_from.endswith('booking.com') or email_from == 'd365labs@gmail.com' or email_from == 'sudarsanan1996@gmail.com':
+                    return
+                except Exception:
+                    _logger.exception(
+                        'Failed to process MakeMyTrip booking email from %s (Message-Id %s). '
+                        'No CRM lead was created for this message.',
+                        email_from, msg_dict.get('message_id'))
+                    return
 
-                links = soup.find_all("a", href=True)
-                booking_node = soup.find(text=re.compile("Booking.com"))
-                property_name = None
-                if booking_node:
-                    # Get the next text after Booking.com
-                    next_text = booking_node.find_next(string=True)
-                    if next_text:
-                        property_name = next_text.strip()
-                
-                booking_data = None
-                # 2. Filter for booking.com URLs containing res_id
-                for link in links:
-                    if link.text:
-                        href = link.text.strip()
+            # ---------------------------------------------------------------
+            # BOOKING.COM
+            # ---------------------------------------------------------------
+            if email_from.endswith('booking.com') or email_from == 'd365labs@gmail.com' or email_from == 'sudarsanan1996@gmail.com':
+                matched_provider = True
+                try:
+                    links = soup.find_all("a", href=True)
+
+                    # FIX: `soup.find(text=...)` is deprecated/removed in newer BeautifulSoup
+                    # releases (use `string=` instead) and would raise on those versions,
+                    # silently killing Booking.com processing. Wrapped defensively.
+                    property_name = None
+                    try:
+                        booking_node = soup.find(string=re.compile("Booking.com"))
+                    except TypeError:
+                        booking_node = soup.find(text=re.compile("Booking.com"))
+                    if booking_node:
+                        # Get the next text after Booking.com
+                        next_text = booking_node.find_next(string=True)
+                        if next_text:
+                            property_name = next_text.strip()
+
+                    booking_data = None
+                    # FIX: the original code read `link.text` (the link's visible label,
+                    # e.g. "View reservation") instead of the actual href attribute, so
+                    # booking_data was always None and every Booking.com email hit the
+                    # "no valid link found" branch below and was dropped.
+                    for link in links:
+                        href = (link.get('href') or '').strip()
                         if "admin.booking.com" in href and "res_id=" in href:
-                            # Extract booking ID from query params using regex
                             match = re.search(r"res_id=(\d+)", href)
                             booking_id = match.group(1) if match else None
                             booking_data = {
@@ -1054,37 +1089,51 @@ class MailThread(models.AbstractModel):
                                 "booking_id": booking_id
                             }
                             break
-                        else:
-                            continue
-                    else:
-                        continue
-                
 
-                # Step 1: URL and credentials
-                if not booking_data:
-                    _logger.warning('No valid booking.com link found in the email.')
+                    if not booking_data:
+                        _logger.warning(
+                            'No valid booking.com reservation link found in the email from %s '
+                            '(Message-Id %s). No lead was created.',
+                            email_from, msg_dict.get('message_id'))
+                        return
+                    booking_url = booking_data['url']
+                    booking_id = booking_data['booking_id']
+                    if property_name:
+                        property_search = self.env['product.product'].search([('name', 'ilike', property_name)], limit=1)
+                        property_id = property_search.id if property_search else None
+                    else:
+                        property_id = None
+                    if len(self.env['crm.lead'].search([('booking_id', '=', booking_id)])) == 0:
+                        lead = CRMLead.create({
+                            'logo_src': logo_src,
+                            'type': 'opportunity',
+                            'name': f"Booking.com Booking {booking_id}",
+                            'booking_url' : booking_url,
+                            'partner_name': 'Booking.com',
+                            'booking_id': booking_id,
+                            'property_product_id': property_id,
+                            'payment_status': 'unpaid',
+                        })
+                        _logger.info('Created CRM Lead ID : %s', lead.id)
                     return
-                booking_url = booking_data['url']
-                booking_id = booking_data['booking_id']
-                if property_name:
-                    property_search = self.env['product.product'].search([('name', 'ilike', property_name)], limit=1)
-                    property_id = property_search.id if property_search else None
-                else:
-                    property_id = None
-                if len(self.env['crm.lead'].search([('booking_id', '=', booking_id)])) == 0:
-                    lead = CRMLead.create({
-                        'logo_src': logo_src,
-                        'type': 'opportunity',
-                        'name': f"Booking.com Booking {booking_id}",
-                        'booking_url' : booking_url,
-                        'partner_name': 'Booking.com',
-                        'booking_id': booking_id,
-                        'property_product_id': property_id,
-                        'payment_status': 'unpaid',
-                    })
-                      
-            
-            
+                except Exception:
+                    _logger.exception(
+                        'Failed to process Booking.com email from %s (Message-Id %s). '
+                        'No CRM lead was created for this message.',
+                        email_from, msg_dict.get('message_id'))
+                    return
+
+            if not matched_provider:
+                # FIX: previously a message from an unrecognised sender domain fell straight
+                # through to generic mail routing with no trace, which made it impossible to
+                # tell "no email arrived" apart from "email arrived but didn't match any
+                # provider condition" (e.g. MMT emails not actually coming from *.go-mmt.com).
+                _logger.info(
+                    'Email from %s (Message-Id %s) did not match any known booking-partner '
+                    'domain (agoda.com, airbnb.com, go-mmt.com, booking.com). Falling back to '
+                    'standard mail routing.',
+                    email_from, msg_dict.get('message_id'))
+
         # find possible routes for the message; note this also updates notably
         # 'author_id' of msg_dict
         routes = self.message_route(message, msg_dict, model, thread_id, custom_values)

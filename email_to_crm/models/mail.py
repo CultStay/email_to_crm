@@ -683,6 +683,16 @@ class MailThread(models.AbstractModel):
             def extract_field(pattern, text, default=None):
                     match = re.search(pattern, text)
                     return match.group(1).strip() if match else default
+
+
+            def safe_float(value, default=0.0):
+                try:
+                    cleaned = str(value or "").replace(",", "").strip()
+                    return float(cleaned) if cleaned else default
+                except (TypeError, ValueError):
+                    return default
+
+
             if email_from.endswith('agoda.com') or email_from == 'd365labs@gmail.com' or email_from == 'sudarsanan1996@gmail.com':
 
                 try:
@@ -726,12 +736,37 @@ class MailThread(models.AbstractModel):
                             'email': data.get('Customer Email', ''),
                         })
                         user_tz = pytz.timezone(self.env.user.tz or 'Asia/Kolkata')
-                        in_date_obj = datetime.strptime(data.get('Check-in', ''), "%B %d, %Y")
-                        in_date_obj = user_tz.localize(in_date_obj.replace(hour=12, minute=0, second=0, microsecond=0)).astimezone(pytz.UTC).replace(tzinfo=None)
-                        out_date_obj = datetime.strptime(data.get('Check-out', ''), "%B %d, %Y")
-                        out_date_obj = user_tz.localize(out_date_obj.replace(hour=10, minute=0, second=0, microsecond=0)).astimezone(pytz.UTC).replace(tzinfo=None)
-                        amount = float(data.get('Amount', '').replace(",", "").strip()) if data.get('Amount') else 0
-                        net_rate = float(data.get('Net Rate', 0).replace(",", "").strip()) if data.get('Net Rate') else 0
+                        check_in_value = data.get('Check-in')
+                        check_out_value = data.get('Check-out')
+
+                        try:
+                            in_date_obj = (
+                                datetime.strptime(check_in_value, "%B %d, %Y")
+                                if check_in_value else None
+                            )
+                        except (TypeError, ValueError):
+                            in_date_obj = None
+
+                        try:
+                            out_date_obj = (
+                                datetime.strptime(check_out_value, "%B %d, %Y")
+                                if check_out_value else None
+                            )
+                        except (TypeError, ValueError):
+                            out_date_obj = None
+
+                        if in_date_obj:
+                            in_date_obj = user_tz.localize(
+                                in_date_obj.replace(hour=12, minute=0, second=0, microsecond=0)
+                            ).astimezone(pytz.UTC).replace(tzinfo=None)
+
+                        if out_date_obj:
+                            out_date_obj = user_tz.localize(
+                                out_date_obj.replace(hour=10, minute=0, second=0, microsecond=0)
+                            ).astimezone(pytz.UTC).replace(tzinfo=None)
+
+                        amount = safe_float(data.get('Amount'))
+                        net_rate = safe_float(data.get('Net Rate'))
                         lead = CRMLead.create({
                             'logo_src': 'email_to_crm/static/src/img/agoda.png' if not logo_src else logo_src,
                             'type': 'opportunity',
@@ -979,8 +1014,8 @@ class MailThread(models.AbstractModel):
                         else:
                             checkin = checkout = None
                         
-                        amount = float(data.get('Amount', '').replace(",", "").strip()) if data.get('Amount') else 0
-                        net_rate = float(data.get('Net Rate', 0).replace(",", "").strip())
+                        amount = safe_float(data.get('Amount'))
+                        net_rate = safe_float(data.get('Net Rate'))
                         lead = CRMLead.create({
                             'logo_src': 'email_to_crm/static/src/img/mmt.png' if not logo_src else logo_src,
                             'type': 'opportunity',
@@ -1043,48 +1078,52 @@ class MailThread(models.AbstractModel):
                 booking_data = None
                 # 2. Filter for booking.com URLs containing res_id
                 for link in links:
-                    if link.text:
-                        href = link.text.strip()
-                        if "admin.booking.com" in href and "res_id=" in href:
-                            # Extract booking ID from query params using regex
-                            match = re.search(r"res_id=(\d+)", href)
-                            booking_id = match.group(1) if match else None
-                            booking_data = {
-                                "url": href,
-                                "booking_id": booking_id
-                            }
-                            break
-                        else:
-                            continue
-                    else:
-                        continue
-                
+                    href = (link.get("href") or "").strip()
+                    if not href:
+                        href = (link.get_text(" ", strip=True) or "").strip()
+
+                    if "admin.booking.com" in href and "res_id=" in href:
+                        # Extract booking ID from query params using regex
+                        match = re.search(r"res_id=(\d+)", href)
+                        booking_id = match.group(1) if match else None
+                        booking_data = {
+                            "url": href,
+                            "booking_id": booking_id
+                        }
+                        break
 
                 # Step 1: URL and credentials
                 if not booking_data:
-                    _logger.warning('No valid booking.com link found in the email.')
-                    return
-                booking_url = booking_data['url']
-                booking_id = booking_data['booking_id']
-                if property_name:
-                    property_search = self.env['product.product'].search([('name', 'ilike', property_name)], limit=1)
-                    property_id = property_search.id if property_search else None
+                    _logger.warning(
+                        'No valid booking.com link found in the email; '
+                        'falling back to standard mail routing.'
+                    )
                 else:
-                    property_id = None
-                if len(self.env['crm.lead'].search([('booking_id', '=', booking_id)])) == 0:
-                    lead = CRMLead.create({
-                        'logo_src': logo_src,
-                        'type': 'opportunity',
-                        'name': f"Booking.com Booking {booking_id}",
-                        'booking_url' : booking_url,
-                        'partner_name': 'Booking.com',
-                        'booking_id': booking_id,
-                        'property_product_id': property_id,
-                        'payment_status': 'unpaid',
-                    })
-                      
-            
-            
+                    booking_url = booking_data['url']
+                    booking_id = booking_data['booking_id']
+
+                    if property_name:
+                        property_search = self.env['product.product'].search(
+                            [('name', 'ilike', property_name)],
+                            limit=1
+                        )
+                        property_id = property_search.id if property_search else None
+                    else:
+                        property_id = None
+
+                    if len(self.env['crm.lead'].search([('booking_id', '=', booking_id)])) == 0:
+                        lead = CRMLead.create({
+                            'logo_src': logo_src,
+                            'type': 'opportunity',
+                            'name': f"Booking.com Booking {booking_id}",
+                            'booking_url': booking_url,
+                            'partner_name': 'Booking.com',
+                            'booking_id': booking_id,
+                            'property_product_id': property_id,
+                            'payment_status': 'unpaid',
+                        })
+                    return
+
         # find possible routes for the message; note this also updates notably
         # 'author_id' of msg_dict
         routes = self.message_route(message, msg_dict, model, thread_id, custom_values)

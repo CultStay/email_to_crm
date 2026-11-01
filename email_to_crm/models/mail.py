@@ -454,7 +454,7 @@ class CrmLead(models.Model):
         total_balance_sum = 0
         for invoice in today_paid_invoices:
             if invoice.payment_state not in ['paid', 'in_payment','partial']:
-                return
+                continue
             lead = invoice.lead_id
             if not lead:
                 continue
@@ -916,14 +916,40 @@ class MailThread(models.AbstractModel):
                         data['confirmation_code'] = confirmation.group(1)
 
                     # Guest paid total
-                    guest_total = re.search(r"Total \(INR\)\s*₹([\d,]+\.\d+)", text)
+                    guest_total = re.search(r"Total \(INR\)\s*₹([\d,]+(?:\.\d+)?)", text)
                     if guest_total:
-                        data['guest_total'] = float(guest_total.group(1).replace(',', ''))
+                        data['guest_total'] = safe_float(guest_total.group(1))
 
-                    # Host earns
-                    host_earn = re.search(r"You earn\s*₹([\d,]+\.\d+)", text)
-                    if host_earn:
-                        data['host_earnings'] = host_earn.group(1)
+                    # Host Payout / Host Earnings / You earn extraction
+                    payout_patterns = [
+                        # Label followed by ₹ symbol or INR/Rs currency code and amount
+                        r"(?:host\s+payout|host\s+earnings|you\s+earn)(?:\s*\(\s*inr\s*\))?[\s:\-]*[₹]\s*([\d,]+(?:\.\d+)?)",
+                        # Label with explicit (INR) or separated INR followed by amount
+                        r"(?:host\s+payout|host\s+earnings|you\s+earn)(?:\s*\(\s*inr\s*\)|[\s:\-]+inr\b)[\s:\-]*₹?\s*([\d,]+(?:\.\d+)?)",
+                        # Explicit "Host payout" or "Host earnings" label with delimiter and amount
+                        r"(?:host\s+payout|host\s+earnings)[\s:\-]+([\d,]+(?:\.\d+)?)",
+                    ]
+                    host_payout = None
+                    for pattern in payout_patterns:
+                        payout_match = re.search(pattern, text, re.IGNORECASE) or re.search(pattern, cleaned_text, re.IGNORECASE)
+                        if payout_match:
+                            val = safe_float(payout_match.group(1), default=None)
+                            if val is not None:
+                                host_payout = val
+                                break
+
+                    if host_payout is not None:
+                        data['host_payout'] = host_payout
+                        data['host_earnings'] = host_payout
+                        _logger.info(
+                            'Extracted Airbnb Host Payout: %s for booking %s',
+                            host_payout, data.get('confirmation_code')
+                        )
+                    else:
+                        _logger.warning(
+                            'Host Payout could not be extracted from Airbnb email for booking %s',
+                            data.get('confirmation_code')
+                        )
 
                     # Occupancy taxes
                     tax_match = re.search(r"Occupancy taxes\s*₹([\d,]+\.\d+)", text)
@@ -936,15 +962,15 @@ class MailThread(models.AbstractModel):
                     if len(self.env['crm.lead'].search([('booking_id', '=', data.get('confirmation_code'))])) == 0:
                         partner = self.env['res.partner'].create({
                             'name': f"{data.get('guest_name', '')}",
-                            'email': data.get('email', ''),
+                            'email': data.get('email', '') or msg_dict.get('email_from', ''),
                         })
-                        lead = CRMLead.create({
+                        lead_vals = {
                             'logo_src': 'email_to_crm/static/src/img/Airbnb_Logo.png' if not logo_src else logo_src,
                             'type': 'opportunity',
                             'name': f"Airbnb Booking {data.get('confirmation_code', 'Unknown')} {data.get('guest_name', '')}",
-                            'email_from': data.get('email', ''),
+                            'email_from': data.get('email', '') or msg_dict.get('email_from', ''),
                             'check_in': data.get('check_in', ''),
-                            'check_out':data.get('check_out', ''),
+                            'check_out': data.get('check_out', ''),
                             'rate': data.get('guest_total', 0),
                             'customer_paid': data.get('guest_total', 0),
                             'partner_name': 'Airbnb',
@@ -952,15 +978,24 @@ class MailThread(models.AbstractModel):
                             'booking_id': data.get('confirmation_code', ''),
                             'net_rate': data.get('guest_total', 0),
                             'payment_status': 'paid' if data.get('guest_total') else 'unpaid',
-                            'property_id': data.get('property_name', 0),
-                        })
+                            'property_id': data.get('property_name', ''),
+                        }
+                        if data.get('host_payout') is not None:
+                            if not hasattr(CRMLead, '_fields') or not isinstance(CRMLead._fields, dict) or 'x_studio_host_payout_1' in CRMLead._fields:
+                                lead_vals['x_studio_host_payout_1'] = data['host_payout']
+                            else:
+                                _logger.warning(
+                                    "Field 'x_studio_host_payout_1' not found on crm.lead model at runtime; "
+                                    "cannot map Host Payout %s", data['host_payout']
+                                )
+                        lead = CRMLead.create(lead_vals)
                         product = self.env['product.template'].search([('name', 'like', data.get('property_name'))], limit=1)
 
                         if product:
                             lead.property_product_id = product.id
                             lead.city = product.city
                         _logger.info('Created CRM Lead ID : %s', lead.id)
-                        if data.get('guest_total') > 0:
+                        if (data.get('guest_total') or 0) > 0:
                             product = self.env['product.product'].search([('name', 'like', data.get('property_name', ''))], limit=1)
                             invoice = self.env['account.move'].create({
                                 'partner_id': partner.id,
@@ -986,6 +1021,12 @@ class MailThread(models.AbstractModel):
                             lead.invioce_fully_paid = True
                             _logger.info('Created Invoice ID : %s', invoice.id)
                         _logger.info('Processed Airbnb booking for : %s', data.get('guest_name'))
+                        return
+                    else:
+                        _logger.warning(
+                            'Airbnb booking %s already exists in CRM; skipping duplicate creation.',
+                            data.get('confirmation_code')
+                        )
                         return
             if email_from.endswith(('go-mmt.com', 'makemytrip.com', 'mmt.com')) or email_from in ('d365labs@gmail.com', 'sudarsanan1996@gmail.com'):
                 data = {
@@ -1059,7 +1100,7 @@ class MailThread(models.AbstractModel):
                             'booking_id': data.get('Booking ID', ''),
                             'net_rate': net_rate,
                             'payment_status': 'paid' if amount else 'unpaid',
-                            'property_id': data.get('Room Type', 0),
+                            'property_id': data.get('Room Type', ''),
                         })
                         product = self.env['product.template'].search([('name', 'like', data.get('Room Type'))], limit=1)
                         if product:
